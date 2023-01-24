@@ -4,11 +4,10 @@ import subprocess
 import threading
 import time
 import socket, errno
-import json
 import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-DELETE_EVERYTHING_BEFORE = True
+DELETE_EVERYTHING_BEFORE = False
 NETWORK = "localnet"
 SPAWN_VNS = 3
 DEFAULT_TEMPLATE = "counter"
@@ -232,15 +231,6 @@ class ValidatorNode:
         self.cli_process = subprocess.call(self.exec_cli)
 
 
-class ValidatorNodeCli:
-    def __init__(self):
-        pass
-
-    # def new_account(self):
-    #     exec = " ".join(["tari_validator_node_cli", "-b", ".", "accounts", "new"])
-    #     subprocess.call(exec)
-
-
 class Template:
     def __init__(self, template=DEFAULT_TEMPLATE, name=None):
         self.template = template
@@ -313,6 +303,7 @@ if DELETE_EVERYTHING_BEFORE:
     # We usually don't want to recompile the template all the time
     # subprocess.call(["rm", "-f", "-r", f"./{DEFAULT_TEMPLATE}"])
 
+# Class for getting available ports
 ports = Ports()
 check_executable("tari_base_node")
 check_executable("tari_console_wallet")
@@ -320,19 +311,24 @@ check_executable("tari_miner")
 check_executable("tari_validator_node")
 check_executable("tari_validator_node_cli")
 
+# Step 1, start the http server for serving wasm files.
 server = Server()
 server.run()
 
 # Generate template
 template = Template()
+# Start base ndoe
 base_node = BaseNode()
+# Start wallet
 wallet = Wallet(base_node.get_address())
 
+# Set ports for miner
 miner = Miner(base_node.grpc_port, wallet.grpc_port)
+# Mine some blocks
 miner.mine(SPAWN_VNS * 3 + 10)  # Make sure we have enough funds
 
 
-print("Starting the VNs")
+# Start VNs
 VNs = {}
 for vn_id in range(SPAWN_VNS):
     vn = ValidatorNode(base_node.grpc_port, wallet.grpc_port, vn_id)
@@ -340,7 +336,7 @@ for vn_id in range(SPAWN_VNS):
 
 time.sleep(3)
 
-print("Registering the VNs")
+# Register VNs
 for vn_id in VNs:
     VNs[vn_id].register()
     # Uncomment next line if you want to have only one registeration per block
@@ -348,17 +344,17 @@ for vn_id in VNs:
 
 time.sleep(3)
 
-# cli = ValidatorNodeCli()
-# cli.new_account()
+# Publish template
 template.publish_template(next(iter(VNs.values())).json_rpc_port)
 
-print("Mining till the VNs are part of the committees")
+# Mining till the VNs are part of the committees
 miner.mine(20)  # Mine the register TXs
 
 # Wait for the VNs to pickup the blocks from base layer
 # TODO wait for VN to download and activate the template
 time.sleep(10)
 
+# Call the function
 template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)
 
 try:
@@ -393,7 +389,13 @@ try:
                         print(VNs[vn_id].json_rpc_port)
                     else:
                         print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
-
+            elif command.startswith("http vn"):
+                if r := re.match("http vn (\d+)", command):
+                    vn_id = int(r.group(1))
+                    if vn_id in VNs:
+                        print(VNs[vn_id].http_ui_address)
+                    else:
+                        print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
             elif command.startswith("kill"):
                 what = command.split()[1]
                 match what:
