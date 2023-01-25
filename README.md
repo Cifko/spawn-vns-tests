@@ -1,4 +1,4 @@
-The main purpose of this is to quickly spawn a local network of validator nodes. So you can test whatever you want to.
+The main purpose of this is to quickly spawn a local network of validator nodes. So you can test whatever you want to (e.g. new template always on fresh network, new validator node, etc..)
 
 Just run the python script.
 It will create server that will serve the *.wasm

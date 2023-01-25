@@ -188,11 +188,12 @@ class Miner:
 
 
 class ValidatorNode:
-    def __init__(self, base_node_grpc_port, wallet_grpc_port, node_id):
+    def __init__(self, base_node_grpc_port, wallet_grpc_port, node_id, peers=[]):
         self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
         self.json_rpc_port = ports.get_free_port()
         self.json_rpc_address = f"127.0.0.1:{self.json_rpc_port}"
         self.http_ui_address = f"127.0.0.1:{ports.get_free_port()}"
+        self.id = node_id
         self.exec = " ".join(
             [
                 "tari_validator_node",
@@ -209,7 +210,9 @@ class ValidatorNode:
                 "-p",
                 f"validator_node.p2p.transport.tcp.listener_address={self.public_adress}",
                 "-p",
-                f'{NETWORK}.p2p.seeds.peer_seeds=""',
+                "validator_node.p2p.allow_test_addresses=true",
+                "-p",
+                f"{NETWORK}.p2p.seeds.peer_seeds={','.join(peers)}",
                 "-p",
                 f"validator_node.public_address={self.public_adress}",
                 "-p",
@@ -219,6 +222,21 @@ class ValidatorNode:
             ]
         )
         self.process = subprocess.Popen(self.exec)
+
+    def get_address(self):
+        if NETWORK == "localnet":
+            validator_node_id_file_name = f"./vn{self.id}/validator_node_id.json"
+        else:
+            validator_node_id_file_name = f"./vn{self.id}/validator_node_id_{NETWORK}.json"
+        while not os.path.exists(validator_node_id_file_name):
+            time.sleep(0.3)
+        f = open(validator_node_id_file_name, "rt")
+        content = "".join(f.readlines())
+        node_id, public_key, public_address = re.search(
+            r'"node_id":"(.*?)","public_key":"(.*?)".*"public_address":"(.*?)"', content
+        ).groups()
+        public_address = public_address.replace("\\/", "/")
+        return f"{public_key}::{public_address}"
 
     def __del__(self):
         print("vn kill")
@@ -331,7 +349,7 @@ miner.mine(SPAWN_VNS * 3 + 10)  # Make sure we have enough funds
 # Start VNs
 VNs = {}
 for vn_id in range(SPAWN_VNS):
-    vn = ValidatorNode(base_node.grpc_port, wallet.grpc_port, vn_id)
+    vn = ValidatorNode(base_node.grpc_port, wallet.grpc_port, vn_id, [VNs[vn_id].get_address() for vn_id in VNs])
     VNs[vn_id] = vn
 
 time.sleep(3)
