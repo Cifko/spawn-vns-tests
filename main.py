@@ -7,9 +7,9 @@ import socket, errno
 import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-DELETE_EVERYTHING_BEFORE = False
+DELETE_EVERYTHING_BEFORE = True
 NETWORK = "localnet"
-SPAWN_VNS = 3
+SPAWN_VNS = 4
 DEFAULT_TEMPLATE = "counter"
 DEFAULT_TEMPLATE_FUNCTION = "new"
 
@@ -311,6 +311,19 @@ class Template:
         subprocess.call(exec)
 
 
+def account_create(jrpc_port):
+    exec = " ".join(
+        [
+            "tari_validator_node_cli",
+            "--vn-daemon-jrpc-endpoint",
+            f"/ip4/127.0.0.1/tcp/{jrpc_port}",
+            "accounts",
+            "create",
+        ]
+    )
+    subprocess.call(exec)
+
+
 if DELETE_EVERYTHING_BEFORE:
     subprocess.call(["rm", "-f", "-r", "./config"])
     subprocess.call(["rm", "-f", "-r", "./data"])
@@ -347,11 +360,15 @@ miner.mine(SPAWN_VNS * 3 + 10)  # Make sure we have enough funds
 
 
 # Start VNs
+print("Creating VNs")
 VNs = {}
 for vn_id in range(SPAWN_VNS):
+    print("[+]", vn_id)
     vn = ValidatorNode(base_node.grpc_port, wallet.grpc_port, vn_id, [VNs[vn_id].get_address() for vn_id in VNs])
     VNs[vn_id] = vn
+    print("[-]", vn_id)
 
+print("Registering VNs")
 time.sleep(3)
 
 # Register VNs
@@ -372,8 +389,16 @@ miner.mine(20)  # Mine the register TXs
 # TODO wait for VN to download and activate the template
 time.sleep(10)
 
+# Let's kill one VN and see that if I send transactions it should always pass
+# del VNs[0]
+# time.sleep(5)
+
+# Create account
+account_create(next(iter(VNs.values())).json_rpc_port)
+
+
 # Call the function
-template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)
+# template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)
 
 try:
     while True:
@@ -443,6 +468,8 @@ try:
                     print("Wallet is running")
                 for vn_id in VNs:
                     print(f"VN<{vn_id}> is running")
+            elif command == "tx":
+                template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)
             elif command.startswith("eval"):
                 # In case you need for whatever reason access to the running python script
                 eval(command[len("eval ") :])
