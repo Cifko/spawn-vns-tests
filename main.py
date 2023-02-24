@@ -7,7 +7,7 @@ import socket, errno
 import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-DELETE_EVERYTHING_BEFORE = True
+DELETE_EVERYTHING_BEFORE = False
 NETWORK = "localnet"
 SPAWN_VNS = 4
 DEFAULT_TEMPLATE = "counter"
@@ -249,6 +249,59 @@ class ValidatorNode:
         self.cli_process = subprocess.call(self.exec_cli)
 
 
+class Indexer:
+    def __init__(self, base_node_grpc_port, peers=[]):
+        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
+        self.json_rpc_port = ports.get_free_port()
+        self.json_rpc_address = f"127.0.0.1:{self.json_rpc_port}"
+        self.http_ui_address = f"127.0.0.1:{ports.get_free_port()}"
+        self.exec = " ".join(
+            [
+                "tari_indexer",
+                "-b",
+                f"indexer",
+                "--network",
+                NETWORK,
+                "-p",
+                f"indexer.base_node_grpc_address=127.0.0.1:{base_node_grpc_port}",
+                "-p",
+                "indexer.p2p.transport.type=tcp",
+                "-p",
+                f"indexer.p2p.transport.tcp.listener_address={self.public_adress}",
+                "-p",
+                "indexer.p2p.allow_test_addresses=true",
+                "-p",
+                f"{NETWORK}.p2p.seeds.peer_seeds={','.join(peers)}",
+                "-p",
+                f"indexer.public_address={self.public_adress}",
+                "-p",
+                f"indexer.json_rpc_address={self.json_rpc_address}",
+                "-p",
+                f"indexer.http_ui_address={self.http_ui_address}",
+            ]
+        )
+        self.process = subprocess.Popen(self.exec)
+
+    def get_address(self):
+        if NETWORK == "localnet":
+            indexer_id_file_name = f"./indexer/indexer_id.json"
+        else:
+            indexer_id_file_name = f"./indexer/indexer_id_{NETWORK}.json"
+        while not os.path.exists(indexer_id_file_name):
+            time.sleep(0.3)
+        f = open(indexer_id_file_name, "rt")
+        content = "".join(f.readlines())
+        node_id, public_key, public_address = re.search(
+            r'"node_id":"(.*?)","public_key":"(.*?)".*"public_address":"(.*?)"', content
+        ).groups()
+        public_address = public_address.replace("\\/", "/")
+        return f"{public_key}::{public_address}"
+
+    def __del__(self):
+        print("indexer kill")
+        self.process.kill()
+
+
 class Template:
     def __init__(self, template=DEFAULT_TEMPLATE, name=None):
         self.template = template
@@ -325,11 +378,12 @@ def account_create(jrpc_port):
 
 
 if DELETE_EVERYTHING_BEFORE:
-    subprocess.call(["rm", "-f", "-r", "./config"])
-    subprocess.call(["rm", "-f", "-r", "./data"])
-    subprocess.call(["rm", "-f", "-r", "./log"])
-    subprocess.call(["rm", "-f", "-r", "./peer_db"])
-    subprocess.call(["rm", "-f", "-r", "./vn*"])
+    subprocess.call("rm -f -r ./config")
+    subprocess.call("rm -f -r ./data")
+    subprocess.call("rm -f -r ./log")
+    subprocess.call("rm -f -r ./peer_db")
+    subprocess.call("rm -f -r ./vn*")
+    subprocess.call("rm -f -r ./indexer")
     # subprocess.call(["rm", "-f", "-r", "./accounts*"])
     # We usually don't want to recompile the template all the time
     # subprocess.call(["rm", "-f", "-r", f"./{DEFAULT_TEMPLATE}"])
@@ -368,6 +422,8 @@ for vn_id in range(SPAWN_VNS):
     VNs[vn_id] = vn
     print("[-]", vn_id)
 
+indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
+
 print("Registering VNs")
 time.sleep(3)
 
@@ -380,7 +436,7 @@ for vn_id in VNs:
 time.sleep(3)
 
 # Publish template
-template.publish_template(next(iter(VNs.values())).json_rpc_port)
+# template.publish_template(next(iter(VNs.values())).json_rpc_port)
 
 # Mining till the VNs are part of the committees
 miner.mine(20)  # Mine the register TXs
@@ -389,13 +445,10 @@ miner.mine(20)  # Mine the register TXs
 # TODO wait for VN to download and activate the template
 time.sleep(10)
 
-# Let's kill one VN and see that if I send transactions it should always pass
-# del VNs[0]
-# time.sleep(5)
-
 # Create account
 account_create(next(iter(VNs.values())).json_rpc_port)
 
+# time.sleep(5)
 
 # Call the function
 # template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)
@@ -408,11 +461,12 @@ try:
                 print("Commands available : ")
                 print("mine <number of blocks> - to mine blocks")
                 print("grpc <node|wallet> - to get grpc port of node or wallet")
-                print("jrpc vn <id> - to get jrpc port of vn with id <id>")
+                print("jrpc <vn <id>|indexer> - to get jrpc port of vn with id <id> or indexer")
+                print("http <vn <id>|indexer> - to get http address of vn with id <id> or indexer")
                 print(
-                    "kill <node|wallet|vn <id>> - to kill node, wallet or vn with id, the command how to run it locally will be printed without the `-n` (non-interactive switch)"
+                    "kill <node|wallet|indexer|vn <id>> - to kill node, wallet, indexer or vn with id, the command how to run it locally will be printed without the `-n` (non-interactive switch)"
                 )
-                print("live - list of things that are still running from this python (base node, wallet, vns)")
+                print("live - list of things that are still running from this python (base node, wallet, vns, indexer)")
                 print("---")
                 print("The VNs are zero based index")
             elif command.startswith("mine"):
@@ -432,6 +486,8 @@ try:
                         print(VNs[vn_id].json_rpc_port)
                     else:
                         print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
+            elif command.startswith("jrpc indexer"):
+                print(indexer.json_rpc_port)
             elif command.startswith("http vn"):
                 if r := re.match("http vn (\d+)", command):
                     vn_id = int(r.group(1))
@@ -439,6 +495,8 @@ try:
                         print(VNs[vn_id].http_ui_address)
                     else:
                         print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
+            elif command == ("http indexer"):
+                print(indexer.http_ui_address)
             elif command.startswith("kill"):
                 what = command.split()[1]
                 match what:
@@ -448,6 +506,9 @@ try:
                     case "wallet":
                         print(f'To run the wallet : {wallet.exec.replace("-n ", "")}')
                         del wallet
+                    case "indexer":
+                        print(f'To run the indexer : {indexer.exec.replace("-n ", "")}')
+                        del indexer
                     case _:
                         # This should be 'VN <id>'
                         if r := re.match("vn (\d+)", what):
@@ -466,6 +527,8 @@ try:
                     print("Base node is running")
                 if "wallet" in locals():
                     print("Wallet is running")
+                if "indexer" in locals():
+                    print("Indexer is running")
                 for vn_id in VNs:
                     print(f"VN<{vn_id}> is running")
             elif command == "tx":
@@ -484,6 +547,9 @@ if "base_node" in locals():
 if "wallet" in locals():
     print("Wallet : ")
     print(wallet.exec.replace("-n ", ""))
+if "indexer" in locals():
+    print("Indexer : ")
+    print(indexer.exec.replace("-n ", ""))
 print("Miner : ")
 print(miner.exec)
 for vn_id in VNs:
