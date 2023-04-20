@@ -2,3 +2,17 @@
 !main.py
 !README.md
 !.gitignore
+!base_node.py
+!config.py
+!dan_wallet_daemon.py
+!indexer.py
+!miner.py
+!ports.py
+!protos.bat
+!protos.sh
+!template.py
+!template_server.py
+!validator_node.py
+!wallet.py
+!protos
+!protos/__init__.py
