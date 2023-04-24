@@ -27,7 +27,7 @@ if DELETE_EVERYTHING_BEFORE or DELETE_STDOUT_LOGS:
         full_path = os.path.join(os.getcwd(), file)
         if os.path.isdir(full_path):
             if DELETE_EVERYTHING_BEFORE:
-                if re.match(r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon)", file):
+                if re.match(r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon|counter)", file):
                     shutil.rmtree(full_path)
             else:
                 if re.match(r"stdout", file):

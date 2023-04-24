@@ -28,8 +28,8 @@ class JrpcDanWalletDaemon:
     def keys_list(self):
         return self.call("keys.list")
 
-    def accounts_create(self, name, signing_key_index=0, custom_access_rules=None, fee=None):
-        return self.call("accounts.create", [name, signing_key_index, custom_access_rules, fee])
+    def accounts_create(self, name, signing_key_index=0, custom_access_rules=None, fee=None, is_default=True):
+        return self.call("accounts.create", [name, signing_key_index, custom_access_rules, fee, is_default])
 
     def accounts_list(self, offset=0, limit=1):
         return self.call("accounts.list", [offset, limit])

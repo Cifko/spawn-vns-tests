@@ -52,6 +52,8 @@ class Template:
                 f"{self.name}",
                 "--template-version",
                 "1",
+                "--template-type",
+                "wasm",
             ]
         )
         result = subprocess.run(exec, stdout=subprocess.PIPE)
