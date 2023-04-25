@@ -3,7 +3,9 @@ import os
 import time
 import re
 import shutil
+import json
 import sys
+import base64
 from template_server import Server
 from ports import ports
 from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
@@ -87,6 +89,17 @@ try:
     print("### PUBLISHING TEMPLATE ###")
     template.publish_template(next(iter(VNs.values())).json_rpc_port, server.port)
 
+    # Wait until they are all in the mempool
+    i = 0
+    while i < 10:
+        if base_node.grpc_base_node.get_mempool_size() < len(VNs) + 1:
+            print("Waiting for 3 tx's in mempool...")
+            time.sleep(3)
+        else:
+            break   
+        i+=1    
+
+
     # Mining till the VNs are part of the committees
     miner.mine(20)  # Mine the register TXs
 
@@ -142,6 +155,7 @@ try:
             try:
                 if command == "help":
                     print("Commands available : ")
+                    print("burn <public_key> <path = 'burn.json'>")
                     print("mine <number of blocks> - to mine blocks")
                     print("grpc <node|wallet> - to get grpc port of node or wallet")
                     print("jrpc <vn <id>|dan <id>|indexer> - to get jrpc port of vn with id <id>, dan wallet with id <id> or indexer")
@@ -157,12 +171,24 @@ try:
                     public_key = bytes(int(public_key[i : i + 2], 16) for i in range(0, len(public_key), 2))
                     print(f"### BURNING {BURN_AMOUNT} ###")
                     burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key) 
+                    os.mkdir("output")
                     outfile = "burn.json"
-                    if command.split().len() > 1:
+                    if len(command.split()) > 2:
                         outfile = command.split()[2]
 
-                    with open(outfile, "w") as f:
-                        json.dump(burn, f)
+                    with open("output/" + outfile, "w") as f:
+                        claim_proof = {
+                            "commitment": base64.b64encode(burn.commitment).decode("utf-8"),
+                            "range_proof": base64.b64encode(burn.range_proof).decode("utf-8"),
+                            "reciprocal_claim_public_key": base64.b64encode(burn.reciprocal_claim_public_key).decode("utf-8"),
+                            "ownership_proof": {
+                                "u": base64.b64encode(burn.ownership_proof.u).decode("utf-8"),
+                                "v": base64.b64encode(burn.ownership_proof.v).decode("utf-8"),
+                                "public_nonce": base64.b64encode(burn.ownership_proof.public_nonce).decode("utf-8"),
+                            },
+                        }
+
+                        json.dump(claim_proof, f)
                     print("written to file", outfile)
 
                 elif command.startswith("mine"):
