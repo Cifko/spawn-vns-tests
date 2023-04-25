@@ -12,7 +12,7 @@ REDIRECT_INDEXER_STDOUT = False
 # This is for the cargo generate and compilation for the template
 REDIRECT_TEMPLATE_STDOUT = False
 NETWORK = "localnet"
-SPAWN_VNS = 1
+SPAWN_VNS = 2
 DEFAULT_TEMPLATE = "counter"
 DEFAULT_TEMPLATE_FUNCTION = "new"
 BURN_AMOUNT = 1000000
