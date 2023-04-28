@@ -44,6 +44,13 @@ class GrpcBaseNode:
     def get_public_addresses(self):
         return self.get_identity().public_addresses
 
+    def get_tip_info(self):
+        request = types_pb2.Empty()
+        return self.stub.GetTipInfo(request)
+
+    def get_tip(self):
+        return self.get_tip_info().metadata.height_of_longest_chain
+
 
 class BaseNode:
     def __init__(self):
@@ -80,7 +87,7 @@ class BaseNode:
             ]
         )
         if REDIRECT_BASE_NODE_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/base_node.log", "a+"))
+            self.process = subprocess.Popen(self.exec, stdout=open("stdout/base_node.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
         self.grpc_base_node = GrpcBaseNode(f"127.0.0.1:{self.grpc_port}")

@@ -56,7 +56,7 @@ class Indexer:
             ]
         )
         if REDIRECT_INDEXER_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/indexer.log", "a+"))
+            self.process = subprocess.Popen(self.exec, stdout=open("stdout/indexer.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
 

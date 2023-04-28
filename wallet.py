@@ -69,7 +69,7 @@ class Wallet:
             ]
         )
         if REDIRECT_WALLET_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/wallet_stdout.log", "a+"))
+            self.process = subprocess.Popen(self.exec, stdout=open("stdout/wallet.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
         self.grpc_client = GrpcWallet(f"127.0.0.1:{self.grpc_port}")

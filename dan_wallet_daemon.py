@@ -66,7 +66,7 @@ class DanWalletDaemon:
             [
                 run,
                 "-b",
-                "dan_wallet_daemon",
+                f"dan_wallet_daemon{dan_wallet_id}",
                 "--network",
                 "localnet",
                 "--listen-addr",
@@ -78,7 +78,7 @@ class DanWalletDaemon:
             ]
         )
         if self.id >= REDIRECT_DAN_WALLET_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/dan_wallet_stdout.log", "a+"))
+            self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/dan_wallet_{self.id}.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
         self.jrpc_client = JrpcDanWalletDaemon(f"http://127.0.0.1:{self.json_rpc_port}")

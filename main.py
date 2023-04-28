@@ -23,15 +23,24 @@ def check_executable(file_name):
         print(f"Copy {file_name} executable in here")
         exit()
 
+
+def wait_for_vns_to_sync():
+    while any(
+        vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3 for vn in VNs.values()
+    ):
+        print("Waiting for VNs to sync")
+        time.sleep(1)
+
+
 try:
-
-
     if DELETE_EVERYTHING_BEFORE or DELETE_STDOUT_LOGS:
         for file in os.listdir(os.getcwd()):
             full_path = os.path.join(os.getcwd(), file)
             if os.path.isdir(full_path):
                 if DELETE_EVERYTHING_BEFORE:
-                    if re.match(r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon|counter)", file):
+                    if re.match(
+                        r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon\d+|counter)", file
+                    ):
                         shutil.rmtree(full_path)
                 else:
                     if re.match(r"stdout", file):
@@ -62,7 +71,6 @@ try:
     miner = Miner(base_node.grpc_port, wallet.grpc_port)
     # Mine some blocks
     miner.mine(SPAWN_VNS * 3 + 10)  # Make sure we have enough funds
-
     # Start VNs
     print("### CREATING VNS ###")
     VNs = {}
@@ -73,7 +81,8 @@ try:
     # indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
 
     print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
-    time.sleep(3)
+
+    wait_for_vns_to_sync()
 
     DanWallets = {}
     # Register VNs
@@ -83,7 +92,7 @@ try:
         # Uncomment next line if you want to have only one registeration per block
         # miner.mine(1)
 
-    time.sleep(3)
+    wait_for_vns_to_sync()
 
     # Publish template
     print("### PUBLISHING TEMPLATE ###")
@@ -96,29 +105,24 @@ try:
             print("Waiting for 3 tx's in mempool...")
             time.sleep(3)
         else:
-            break   
-        i+=1    
-
+            break
+        i += 1
 
     # Mining till the VNs are part of the committees
     miner.mine(20)  # Mine the register TXs
 
     # Wait for the VNs to pickup the blocks from base layer
     # TODO wait for VN to download and activate the template
-    time.sleep(5)
+    wait_for_vns_to_sync()
 
     # Create account
     # account_create(next(iter(VNs.values())).json_rpc_port)
     print("### CREATING ACCOUNT ###")
     some_dan_wallet_jrpc = next(iter(DanWallets.values())).jrpc_client
-    print("..")
     some_dan_wallet_jrpc.accounts_create("TestAccount")
-    print("...")
     account = some_dan_wallet_jrpc.accounts_list(0, 1)["accounts"][0]
-    print("...4")
     public_key = account["public_key"]
 
-    print("...5")
     # needs conversion from string to bytes
     public_key = bytes(int(public_key[i : i + 2], 16) for i in range(0, len(public_key), 2))
     print(f"### BURNING {BURN_AMOUNT} ###")
@@ -128,9 +132,7 @@ try:
     while base_node.grpc_base_node.get_mempool_size() != 1:
         time.sleep(0.5)
     # Mine the burn
-    miner.mine(4)
-    # Wait for the VNs to pickup the changes from baselayer
-    time.sleep(10)
+    wait_for_vns_to_sync()
 
     some_dan_wallet_jrpc.claim_burn(burn, account)
     # Claim the burn
@@ -170,7 +172,7 @@ try:
                     public_key = command.split()[1]
                     public_key = bytes(int(public_key[i : i + 2], 16) for i in range(0, len(public_key), 2))
                     print(f"### BURNING {BURN_AMOUNT} ###")
-                    burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key) 
+                    burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key)
                     os.mkdir("output")
                     outfile = "burn.json"
                     if len(command.split()) > 2:
@@ -275,7 +277,7 @@ try:
                     # In case you need for whatever reason access to the running python script
                     eval(for_eval[len("eval ") :])
                 else:
-                   print("Wrong command")    
+                    print("Wrong command")
             except Exception as e:
                 print("Command errored", e)
     except:

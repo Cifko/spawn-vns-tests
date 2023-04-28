@@ -18,7 +18,7 @@ class Template:
             ["cargo", "generate", "--git", "https://github.com/tari-project/wasm-template.git", "-s", self.template, "-n", self.name]
         )
         if REDIRECT_TEMPLATE_STDOUT:
-            subprocess.call(exec, stdout=open(f"stdout/template_{self.name}_cargo_generate.log", "a+"))
+            subprocess.call(exec, stdout=open(f"stdout/template_{self.name}_cargo_generate.log", "a+"), stderr=subprocess.STDOUT)
         else:
             subprocess.call(exec)
 
@@ -27,7 +27,7 @@ class Template:
             ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release", f"--manifest-path={self.name}\package\Cargo.toml"]
         )
         if REDIRECT_TEMPLATE_STDOUT:
-            subprocess.call(exec, stdout=open(f"stdout/template_{self.name}_cargo_build.log", "a+"))
+            subprocess.call(exec, stdout=open(f"stdout/template_{self.name}_cargo_build.log", "a+"), stderr=subprocess.STDOUT)
         else:
             subprocess.call(exec)
 
@@ -83,6 +83,6 @@ class Template:
             ]
         )
         if REDIRECT_VN_CLI_STDOUT:
-            subprocess.call(exec, stdout=open(f"stdout/vn_cli_for_template_{self.name}.log", "a+"))
+            subprocess.call(exec, stdout=open(f"stdout/vn_cli_for_template_{self.name}.log", "a+"), stderr=subprocess.STDOUT)
         else:
             subprocess.call(exec)

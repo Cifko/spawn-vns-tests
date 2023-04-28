@@ -6,6 +6,25 @@ import subprocess
 import os
 import time
 import re
+import requests
+
+
+class JrpcValidatorNode:
+    def __init__(self, jrpc_url):
+        self.id = 0
+        self.url = jrpc_url
+        self.token = None
+
+    def internal_call(self, method, params=[]):
+        self.id += 1
+        response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params})
+        return response.json()["result"]
+
+    def call(self, method, params=[]):
+        return self.internal_call(method, params)
+
+    def get_epoch_manager_stats(self):
+        return self.call("get_epoch_manager_stats")
 
 
 class ValidatorNode:
@@ -51,9 +70,10 @@ class ValidatorNode:
             ]
         )
         if self.id >= REDIRECT_VN_FROM_INDEX_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/vn_{node_id}.log", "a+"))
+            self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/vn_{node_id}.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
+        self.jrpc_client = JrpcValidatorNode(f"http://127.0.0.1:{self.json_rpc_port}")
 
     def get_address(self):
         validator_node_id_file_name = f"./vn{self.id}/{NETWORK}/validator_node_id.json"
@@ -78,6 +98,6 @@ class ValidatorNode:
             run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
         self.exec_cli = " ".join([run, "--vn-daemon-jrpc-endpoint", f"/ip4/127.0.0.1/tcp/{self.json_rpc_port}", "vn", "register"])
         if self.id >= REDIRECT_VN_FROM_INDEX_STDOUT:
-            self.cli_process = subprocess.call(self.exec_cli, stdout=open(f"stdout/vn_{self.id}_cli_stdout.log", "a+"))
+            self.cli_process = subprocess.call(self.exec_cli, stdout=open(f"stdout/vn_{self.id}_cli.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.cli_process = subprocess.call(self.exec_cli)

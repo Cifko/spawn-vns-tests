@@ -30,6 +30,8 @@ class Miner:
 
     def mine(self, blocks):
         if REDIRECT_MINER_STDOUT:
-            self.process = subprocess.call(self.exec.replace("#blocks", str(blocks)), stdout=open("stdout/miner_stdout.log", "a+"))
+            self.process = subprocess.call(
+                self.exec.replace("#blocks", str(blocks)), stdout=open("stdout/miner.log", "a+"), stderr=subprocess.STDOUT
+            )
         else:
             self.process = subprocess.call(self.exec.replace("#blocks", str(blocks)))
