@@ -31,7 +31,7 @@ def wait_for_vns_to_sync():
     ):
         print(".", end="")
         time.sleep(1)
-    print("Done")
+    print(" done")
 
 
 try:
@@ -136,6 +136,7 @@ try:
     # Mine the burn
     wait_for_vns_to_sync()
 
+    print(f"### CLAIM BURN ###")
     some_dan_wallet_jrpc.claim_burn(burn, account)
     # Claim the burn
     while (

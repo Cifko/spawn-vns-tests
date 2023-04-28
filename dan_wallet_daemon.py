@@ -18,6 +18,8 @@ class JrpcDanWalletDaemon:
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
+        print(response)
+        print(response.json())
         return response.json()["result"]
 
     def call(self, method, params=[]):
