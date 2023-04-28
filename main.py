@@ -25,11 +25,13 @@ def check_executable(file_name):
 
 
 def wait_for_vns_to_sync():
+    print("Waiting for VNs to sync", end="")
     while any(
         vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3 for vn in VNs.values()
     ):
-        print("Waiting for VNs to sync")
+        print(".", end="")
         time.sleep(1)
+    print("Done")
 
 
 try:
