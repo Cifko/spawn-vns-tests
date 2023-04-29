@@ -12,20 +12,19 @@ class JrpcDanWalletDaemon:
         self.url = jrpc_url
         self.token = None
 
-    def internal_call(self, method, params=[]):
+    def call(self, method, params=[]):
         self.id += 1
         headers = None
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
-        print(response)
-        print(response.json())
         return response.json()["result"]
 
-    def call(self, method, params=[]):
-        if self.token == None:
-            self.token = self.internal_call("auth.login")
-        return self.internal_call(method, params)
+    def auth(self):
+        resp = self.call("auth.request", [["Admin"]])
+        auth_token = resp["auth_token"]
+        resp = self.call("auth.accept", [auth_token])
+        self.token = resp["permissions_token"]
 
     def keys_list(self):
         return self.call("keys.list")

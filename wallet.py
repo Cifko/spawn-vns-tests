@@ -20,6 +20,10 @@ class GrpcWallet:
         self.channel = insecure_channel(self.address)
         self.stub = wallet_pb2_grpc.WalletStub(self.channel)
 
+    def get_version(self):
+        request = types_pb2.Empty()
+        return self.stub.GetVersion(request)
+
     def get_identity(self):
         request = types_pb2.Empty()
         return self.stub.Identify(request)
@@ -72,6 +76,8 @@ class Wallet:
             self.process = subprocess.Popen(self.exec, stdout=open("stdout/wallet.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
+
+    def init_grpc(self):
         self.grpc_client = GrpcWallet(f"127.0.0.1:{self.grpc_port}")
 
     def __del__(self):

@@ -25,7 +25,7 @@ def check_executable(file_name):
 
 
 def wait_for_vns_to_sync():
-    print("Waiting for VNs to sync", end="")
+    print("Waiting for VNs to sync to", base_node.grpc_base_node.get_tip(), end=" ")
     while any(
         vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3 for vn in VNs.values()
     ):
@@ -68,6 +68,15 @@ try:
     print("### STARTING WALLET ###")
     # Start wallet
     wallet = Wallet(base_node.get_address())
+    # Sometimes it takes a while to establish the grpc connection
+    while True:
+        try:
+            wallet.init_grpc()
+            wallet.grpc_client.get_version()
+            break
+        except:
+            pass
+        time.sleep(0.3)
 
     # Set ports for miner
     miner = Miner(base_node.grpc_port, wallet.grpc_port)
@@ -95,6 +104,8 @@ try:
         # miner.mine(1)
 
     wait_for_vns_to_sync()
+    for vn_id in VNs:
+        DanWallets[vn_id].jrpc_client.auth()
 
     # Publish template
     print("### PUBLISHING TEMPLATE ###")
@@ -133,11 +144,13 @@ try:
     # Wait for the burn to be in the mempool
     while base_node.grpc_base_node.get_mempool_size() != 1:
         time.sleep(0.5)
+    miner.mine(4)  # Mine the burn
     # Mine the burn
     wait_for_vns_to_sync()
 
     print(f"### CLAIM BURN ###")
     some_dan_wallet_jrpc.claim_burn(burn, account)
+    print(f"### CHECKING THE BALANCE ###")
     # Claim the burn
     while (
         some_dan_wallet_jrpc.get_balances(account)["balances"][0]["balance"]
