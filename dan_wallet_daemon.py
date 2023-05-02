@@ -9,7 +9,6 @@ import subprocess
 import signal
 
 
-
 class JrpcDanWalletDaemon:
     def __init__(self, jrpc_url):
         self.id = 0
@@ -57,7 +56,7 @@ class JrpcDanWalletDaemon:
         return self.call("accounts.claim_burn", ClaimBurnRequest)
 
     def get_balances(self, account):
-        return self.call("accounts.get_balances", [account["account"]["name"]])
+        return self.call("accounts.get_balances", [account["account"]["name"], True])
 
 
 class DanWalletDaemon:
@@ -124,11 +123,11 @@ class DanWalletUI:
     def __del__(self):
         print("del wallet ui")
         # for p in self.process.active_children():
-            # p.terminate()
-            # p.kill()
+        # p.terminate()
+        # p.kill()
         # self.process.terminate()
         # self.process.kill()
         # kill all children
         os.kill(self.process.pid, signal.CTRL_C_EVENT)
         self.process.kill()
-        # os.killpg(os.getpgid(self.process.pid), signal.SIGTERM) 
+        # os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
