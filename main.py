@@ -29,7 +29,7 @@ def wait_for_vns_to_sync():
     # We have to check if VNs are already running their jrpc server
     while True:
         try:
-            any(
+            all(
                 vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3
                 for vn in VNs.values()
             )
@@ -114,8 +114,15 @@ try:
         # miner.mine(1)
 
     wait_for_vns_to_sync()
+
     for vn_id in VNs:
-        DanWallets[vn_id].jrpc_client.auth()
+        while True:
+            try:
+                DanWallets[vn_id].jrpc_client.auth()
+                break
+            except:
+                print("Dan wallet is not ready yet")
+                time.sleep(1)
 
     # Publish template
     print("### PUBLISHING TEMPLATE ###")
