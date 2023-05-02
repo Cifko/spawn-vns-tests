@@ -26,6 +26,17 @@ def check_executable(file_name):
 
 def wait_for_vns_to_sync():
     print("Waiting for VNs to sync to", base_node.grpc_base_node.get_tip(), end=" ")
+    # We have to check if VNs are already running their jrpc server
+    while True:
+        try:
+            any(
+                vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3
+                for vn in VNs.values()
+            )
+            break
+        except:
+            print("VNs not ready")
+            time.sleep(1)
     while any(
         vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3 for vn in VNs.values()
     ):
@@ -90,7 +101,6 @@ try:
         VNs[vn_id] = vn
 
     # indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
-
     time.sleep(1)
     print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
 
@@ -337,4 +347,4 @@ for vn_id in VNs:
     print(VNs[vn_id].exec)
     #print(VNs[vn_id].exec_cli)
 # for dan_id in DanWallets:
-del DanWallets   
+del DanWallets
