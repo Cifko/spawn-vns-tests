@@ -1,6 +1,6 @@
 # type:ignore
 from base_node import BaseNode
-from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
+from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
 from miner import Miner
@@ -41,7 +41,7 @@ try:
             if os.path.isdir(full_path):
                 if DELETE_EVERYTHING_BEFORE:
                     if re.match(
-                        r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon\d+|counter)", file
+                        r"(config|data|base_node|log|peer_db|indexer|miner|vn\d+|wallet|stdout|dan_wallet_daemon|dan_wallet_daemon\d+|counter)", file
                     ):
                         shutil.rmtree(full_path)
                 else:
@@ -81,7 +81,7 @@ try:
     # Set ports for miner
     miner = Miner(base_node.grpc_port, wallet.grpc_port)
     # Mine some blocks
-    miner.mine(SPAWN_VNS * 3 + 10)  # Make sure we have enough funds
+    miner.mine(SPAWN_VNS + 13)  # Make sure we have enough funds
     # Start VNs
     print("### CREATING VNS ###")
     VNs = {}
@@ -91,21 +91,26 @@ try:
 
     # indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
 
+    time.sleep(1)
     print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
 
     wait_for_vns_to_sync()
 
+    print("here")
     DanWallets = {}
     # Register VNs
     for vn_id in VNs:
         VNs[vn_id].register()
-        DanWallets[vn_id] = DanWalletDaemon(vn_id, VNs[vn_id].json_rpc_port)
         # Uncomment next line if you want to have only one registeration per block
         # miner.mine(1)
 
+    for dwallet_id in range(SPAWN_WALLETS):    
+        # vn_id = min(SPAWN_VNS - 1, dwallet_id)
+        DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, VNs[dwallet_id].json_rpc_port)
+
     wait_for_vns_to_sync()
-    for vn_id in VNs:
-        DanWallets[vn_id].jrpc_client.auth()
+    for d_id in range(SPAWN_WALLETS):
+        DanWallets[d_id].jrpc_client.auth()
 
     # Publish template
     print("### PUBLISHING TEMPLATE ###")
@@ -115,7 +120,7 @@ try:
     i = 0
     while i < 10:
         if base_node.grpc_base_node.get_mempool_size() < len(VNs) + 1:
-            print("Waiting for 3 tx's in mempool...")
+            print("Waiting for X tx's in mempool...")
             time.sleep(3)
         else:
             break
@@ -123,6 +128,7 @@ try:
 
     # Mining till the VNs are part of the committees
     miner.mine(20)  # Mine the register TXs
+    time.sleep(1)
 
     # Wait for the VNs to pickup the blocks from base layer
     # TODO wait for VN to download and activate the template
@@ -310,6 +316,9 @@ try:
         print("failed in CLI loop")
 except Exception as ex:
     print("failed setup:", ex)
+    exc_type, exc_obj, exc_tb = sys.exc_info()
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    print(exc_type, fname, exc_tb.tb_lineno)
 
 print("The commands to run : ")
 if "base_node" in locals():
@@ -323,9 +332,9 @@ if "indexer" in locals():
     print(indexer.exec.replace("-n ", ""))
 print("Miner : ")
 print(miner.exec)
+server.stop()
 for vn_id in VNs:
     print(VNs[vn_id].exec)
-    print(VNs[vn_id].exec_cli)
+    #print(VNs[vn_id].exec_cli)
 # for dan_id in DanWallets:
 del DanWallets   
-server.stop()

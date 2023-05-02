@@ -7,7 +7,7 @@ import platform
 import requests
 import subprocess
 import signal
-
+import time
 
 
 class JrpcDanWalletDaemon:
@@ -27,8 +27,10 @@ class JrpcDanWalletDaemon:
 
     def auth(self):
         resp = self.call("auth.request", [["Admin"]])
+        print(resp)
         auth_token = resp["auth_token"]
         resp = self.call("auth.accept", [auth_token])
+        print(resp)
         self.token = resp["permissions_token"]
 
     def keys_list(self):
@@ -90,6 +92,10 @@ class DanWalletDaemon:
         jrpc_address = f"http://127.0.0.1:{self.json_rpc_port}"
         self.jrpc_client = JrpcDanWalletDaemon(jrpc_address)
         self.http_client = DanWalletUI(self.id, jrpc_address)
+        while not os.path.exists(f"dan_wallet_daemon{dan_wallet_id}/localnet/pid"):
+            print("waiting for dan wallet to start")
+            time.sleep(1)
+        
 
     def __del__(self):
         self.process.kill()
@@ -129,6 +135,9 @@ class DanWalletUI:
         # self.process.terminate()
         # self.process.kill()
         # kill all children
-        os.kill(self.process.pid, signal.CTRL_C_EVENT)
+        try:
+          os.kill(self.process.pid, signal.CTRL_C_EVENT)
+        except: 
+          pass
         self.process.kill()
         # os.killpg(os.getpgid(self.process.pid), signal.SIGTERM) 
