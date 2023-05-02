@@ -326,4 +326,6 @@ print(miner.exec)
 for vn_id in VNs:
     print(VNs[vn_id].exec)
     print(VNs[vn_id].exec_cli)
+# for dan_id in DanWallets:
+del DanWallets   
 server.stop()

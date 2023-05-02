@@ -6,6 +6,8 @@ import os
 import platform
 import requests
 import subprocess
+import signal
+
 
 
 class JrpcDanWalletDaemon:
@@ -20,6 +22,7 @@ class JrpcDanWalletDaemon:
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
+        print(response.json())
         return response.json()["result"]
 
     def auth(self):
@@ -90,6 +93,7 @@ class DanWalletDaemon:
 
     def __del__(self):
         self.process.kill()
+        print("del wallet")
         del self.http_client
 
 
@@ -110,7 +114,7 @@ class DanWalletUI:
             self.process = subprocess.Popen(
                 self.exec,
                 stdin=subprocess.PIPE,
-                stdout=open("stdout/dan_wallet_web_ui_{self.id}.log", "a+"),
+                stdout=open(f"stdout/dan_wallet_web_ui_{self.id}.log", "a+"),
                 stderr=subprocess.STDOUT,
                 env=env,
             )
@@ -118,4 +122,13 @@ class DanWalletUI:
             self.process = subprocess.Popen(self.exec, stdin=subprocess.PIPE, env=env)
 
     def __del__(self):
+        print("del wallet ui")
+        # for p in self.process.active_children():
+            # p.terminate()
+            # p.kill()
+        # self.process.terminate()
+        # self.process.kill()
+        # kill all children
+        os.kill(self.process.pid, signal.CTRL_C_EVENT)
         self.process.kill()
+        # os.killpg(os.getpgid(self.process.pid), signal.SIGTERM) 
