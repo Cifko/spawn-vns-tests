@@ -1,21 +1,21 @@
 # type:ignore
-import os
-import time
-import re
-import shutil
-import json
-import sys
-import base64
-from template_server import Server
-from ports import ports
-from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
-from wallet import Wallet
 from base_node import BaseNode
-from template import Template
-from miner import Miner
-from validator_node import ValidatorNode
+from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
+from miner import Miner
+from ports import ports
+from template import Template
+from template_server import Server
+from validator_node import ValidatorNode
+from wallet import Wallet
+import base64
+import json
+import os
+import re
+import shutil
+import sys
+import time
 
 
 def check_executable(file_name):
@@ -177,7 +177,7 @@ try:
                     print("mine <number of blocks> - to mine blocks")
                     print("grpc <node|wallet> - to get grpc port of node or wallet")
                     print("jrpc <vn <id>|dan <id>|indexer> - to get jrpc port of vn with id <id>, dan wallet with id <id> or indexer")
-                    print("http <vn <id>|indexer> - to get http address of vn with id <id> or indexer")
+                    print("http <vn <id>|dan <id>|indexer> - to get http address of vn with id <id>, dan with id <id> or indexer")
                     print(
                         "kill <node|wallet|indexer|vn <id>|dan <id>> - to kill node, wallet, indexer, vn with id or dan wallet with id, the command how to run it locally will be printed without the `-n` (non-interactive switch)"
                     )
@@ -235,15 +235,25 @@ try:
                             print(f"dan id ({vn_id}) is invalid, either it never existed or you already killed it")
                 elif command.startswith("jrpc indexer"):
                     print(indexer.json_rpc_port)
-                elif command.startswith("http vn"):
-                    if r := re.match("http vn (\d+)", command):
-                        vn_id = int(r.group(1))
-                        if vn_id in VNs:
-                            print(f"http://{VNs[vn_id].http_ui_address}")
-                        else:
-                            print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
-                elif command == ("http indexer"):
-                    print(f"http://{indexer.http_ui_address}")
+                elif command.startswith("http"):
+                    if command.startswith("http vn"):
+                        if r := re.match("http vn (\d+)", command):
+                            vn_id = int(r.group(1))
+                            if vn_id in VNs:
+                                print(f"http://{VNs[vn_id].http_ui_address}")
+                            else:
+                                print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
+                    elif command.startswith("http dan"):
+                        if r := re.match("http dan (\d+)", command):
+                            dan_id = int(r.group(1))
+                            if dan_id in DanWallets:
+                                print(f"http://localhost:{DanWallets[dan_id].http_client.http_port}")
+                            else:
+                                print(f"DAN id ({vn_id}) is invalid, either it never existed or you already killed it")
+                    elif command == ("http indexer"):
+                        print(f"http://{indexer.http_ui_address}")
+                    else:
+                        print("Invalid http request")
                 elif command.startswith("kill"):
                     what = command.split(maxsplit=1)[1]
                     match what:

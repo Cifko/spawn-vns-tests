@@ -9,12 +9,12 @@ except:
     print("You forgot to generate protos, run protos.sh or protos.bat")
     exit()
 
-from ports import ports
 from config import NETWORK, REDIRECT_BASE_NODE_STDOUT, USE_BINARY_EXECUTABLE
-import re
+from ports import ports
 import os
-import time
+import re
 import subprocess
+import time
 
 
 class GrpcBaseNode:

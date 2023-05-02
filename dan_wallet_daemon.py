@@ -1,9 +1,11 @@
 # type:ignore
+from config import REDIRECT_DAN_WALLET_STDOUT, USE_BINARY_EXECUTABLE, REDIRECT_DAN_WALLET_WEBUI_STDOUT
 from ports import ports
-import requests
 import base64
+import os
+import platform
+import requests
 import subprocess
-from config import REDIRECT_DAN_WALLET_STDOUT, USE_BINARY_EXECUTABLE
 
 
 class JrpcDanWalletDaemon:
@@ -82,7 +84,38 @@ class DanWalletDaemon:
             self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/dan_wallet_{self.id}.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
-        self.jrpc_client = JrpcDanWalletDaemon(f"http://127.0.0.1:{self.json_rpc_port}")
+        jrpc_address = f"http://127.0.0.1:{self.json_rpc_port}"
+        self.jrpc_client = JrpcDanWalletDaemon(jrpc_address)
+        self.http_client = DanWalletUI(self.id, jrpc_address)
+
+    def __del__(self):
+        self.process.kill()
+        del self.http_client
+
+
+class DanWalletUI:
+    def __init__(self, dan_wallet_id, daemon_jrpc_address):
+        if platform.system() == "Windows":
+            npm = "npm.cmd"
+        else:
+            npm = "npm"
+        self.http_port = ports.get_free_port()
+        self.id = dan_wallet_id
+        self.exec = " ".join(
+            [npm, "--prefix", "../tari-dan/applications/tari_dan_wallet_web_ui", "run", "dev", "--", "--port", str(self.http_port)]
+        )
+        env = os.environ.copy()
+        env["VITE_DAEMON_JRPC_ADDRESS"] = daemon_jrpc_address
+        if self.id >= REDIRECT_DAN_WALLET_WEBUI_STDOUT:
+            self.process = subprocess.Popen(
+                self.exec,
+                stdin=subprocess.PIPE,
+                stdout=open("stdout/dan_wallet_web_ui_{self.id}.log", "a+"),
+                stderr=subprocess.STDOUT,
+                env=env,
+            )
+        else:
+            self.process = subprocess.Popen(self.exec, stdin=subprocess.PIPE, env=env)
 
     def __del__(self):
         self.process.kill()
