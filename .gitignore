@@ -13,7 +13,9 @@
 !protos/__init__.py
 !README.md
 !setup.py
+!*.py
 !template_server.py
 !template.py
 !validator_node.py
 !wallet.py
+protos/*.py
