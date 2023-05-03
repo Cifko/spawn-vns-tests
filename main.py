@@ -29,7 +29,7 @@ def wait_for_vns_to_sync():
     # We have to check if VNs are already running their jrpc server
     while True:
         try:
-            any(
+            all(
                 vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_base_node.get_tip() - 3
                 for vn in VNs.values()
             )
