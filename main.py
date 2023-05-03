@@ -1,6 +1,6 @@
 # type:ignore
 from base_node import BaseNode
-from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
+from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, RUN_SIGNALLING_SERVER, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
 from miner import Miner
@@ -177,6 +177,11 @@ try:
 
     print("### BURNED AND CLAIMED ###")
     print("Balances:", list(DanWallets.values())[0].jrpc_client.get_balances(account))
+
+
+    if RUN_SIGNALLING_SERVER:
+        print("### Starting signalling server")
+        
 
     # Call the function
     template.call_function(DEFAULT_TEMPLATE_FUNCTION, next(iter(VNs.values())).json_rpc_port)

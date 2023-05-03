@@ -13,9 +13,11 @@ REDIRECT_INDEXER_STDOUT = True
 # This is for the cargo generate and compilation for the template
 REDIRECT_TEMPLATE_STDOUT = True
 REDIRECT_DAN_WALLET_WEBUI_STDOUT = True
+REDIRECT_SIGNALING_STDOUT = True
 NETWORK = "localnet"
 SPAWN_VNS = 1
 SPAWN_WALLETS = 1
+RUN_SIGNALLING_SERVER = True
 # Any one of the templates from `wasm_template`
 DEFAULT_TEMPLATE = "counter"
 DEFAULT_TEMPLATE_FUNCTION = "new"

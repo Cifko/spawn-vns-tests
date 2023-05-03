@@ -115,7 +115,7 @@ class DanWalletUI:
         )
         env = os.environ.copy()
         env["VITE_DAEMON_JRPC_ADDRESS"] = daemon_jrpc_address
-        if self.id >= REDIRECT_DAN_WALLET_WEBUI_STDOUT:
+        if REDIRECT_DAN_WALLET_WEBUI_STDOUT:
             self.process = subprocess.Popen(
                 self.exec,
                 stdin=subprocess.PIPE,
