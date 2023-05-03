@@ -9,6 +9,7 @@ from template import Template
 from template_server import Server
 from validator_node import ValidatorNode
 from wallet import Wallet
+from signaling_server import SignalingServer
 import base64
 import json
 import os
@@ -190,6 +191,7 @@ try:
 
     if RUN_SIGNALLING_SERVER:
         print("### Starting signalling server")
+        signaling_server = SignalingServer()
 
     print("### Creating template")
 
@@ -298,6 +300,9 @@ try:
                                     f"DAN id ({vn_id}) is invalid, either it never existed or you already killed it")
                     elif command == ("http indexer"):
                         print(f"http://{indexer.http_ui_address}")
+                    elif command == ("http signaling"):
+                        print(
+                            f"http://localhost:{signaling_server.json_rpc_port}")
                     else:
                         print("Invalid http request")
                 elif command.startswith("kill"):
