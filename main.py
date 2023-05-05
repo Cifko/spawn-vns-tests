@@ -1,6 +1,6 @@
 # type:ignore
 from base_node import BaseNode
-from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, RUN_SIGNALLING_SERVER, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE
+from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, SPAWN_INDEXER, RUN_SIGNALLING_SERVER, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE, STEPS_CREATE_ACCOUNT, STEPS_CREATE_TEMPLATE
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
 from miner import Miner
@@ -107,8 +107,16 @@ try:
                            VNs[vn_id].get_address() for vn_id in VNs])
         VNs[vn_id] = vn
 
-    # indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
-    time.sleep(1)
+    indexer = {}
+    if SPAWN_INDEXER:
+        print("### STARTING INDEXER")
+        indexer = Indexer(base_node.grpc_port, [
+            VNs[vn_id].get_address() for vn_id in VNs])
+        time.sleep(1)
+        connections = indexer.jrpc_client.get_connections()
+        comms_stats = indexer.jrpc_client.get_comms_stats()
+        print(connections)
+        print(comms_stats)
     print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
 
     wait_for_vns_to_sync()
@@ -121,10 +129,13 @@ try:
         # Uncomment next line if you want to have only one registeration per block
         # miner.mine(1)
 
+    if indexer == {} and SPAWN_WALLETS > 0:
+        raise Exception("Can't create a wallet when there is no indexer")
+
     for dwallet_id in range(SPAWN_WALLETS):
         # vn_id = min(SPAWN_VNS - 1, dwallet_id)
         DanWallets[dwallet_id] = DanWalletDaemon(
-            dwallet_id, VNs[dwallet_id].json_rpc_port)
+            dwallet_id, indexer.json_rpc_port)
 
     wait_for_vns_to_sync()
     for d_id in range(SPAWN_WALLETS):
@@ -153,56 +164,57 @@ try:
     # TODO wait for VN to download and activate the template
     wait_for_vns_to_sync()
 
-    # Create account
-    # account_create(next(iter(VNs.values())).json_rpc_port)
-    print("### CREATING ACCOUNT ###")
-    some_dan_wallet_jrpc = next(iter(DanWallets.values())).jrpc_client
-    some_dan_wallet_jrpc.accounts_create("TestAccount")
-    account = some_dan_wallet_jrpc.accounts_list(0, 1)["accounts"][0]
-    public_key = account["public_key"]
+    if STEPS_CREATE_ACCOUNT:
+        print("### CREATING ACCOUNT ###")
+        some_dan_wallet_jrpc = next(iter(DanWallets.values())).jrpc_client
+        some_dan_wallet_jrpc.accounts_create("TestAccount")
+        account = some_dan_wallet_jrpc.accounts_list(0, 1)["accounts"][0]
+        public_key = account["public_key"]
 
-    # needs conversion from string to bytes
-    public_key = bytes(int(public_key[i: i + 2], 16)
-                       for i in range(0, len(public_key), 2))
-    print(f"### BURNING {BURN_AMOUNT} ###")
-    burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key)
+        # needs conversion from string to bytes
+        public_key = bytes(int(public_key[i: i + 2], 16)
+                           for i in range(0, len(public_key), 2))
+        print(f"### BURNING {BURN_AMOUNT} ###")
+        burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key)
 
-    # Wait for the burn to be in the mempool
-    while base_node.grpc_base_node.get_mempool_size() != 1:
-        time.sleep(0.5)
-    miner.mine(4)  # Mine the burn
-    # Mine the burn
-    wait_for_vns_to_sync()
+        # Wait for the burn to be in the mempool
+        while base_node.grpc_base_node.get_mempool_size() != 1:
+            time.sleep(0.5)
+        miner.mine(4)  # Mine the burn
+        # Mine the burn
+        wait_for_vns_to_sync()
 
-    print(f"### CLAIM BURN ###")
-    some_dan_wallet_jrpc.claim_burn(burn, account)
-    print(f"### CHECKING THE BALANCE ###")
-    # Claim the burn
-    while (
-        some_dan_wallet_jrpc.get_balances(account)["balances"][0]["balance"]
-        + some_dan_wallet_jrpc.get_balances(account)["balances"][0]["confidential_balance"]
-        == 0
-    ):
-        time.sleep(1)
+        print(f"### CLAIM BURN ###")
+        some_dan_wallet_jrpc.claim_burn(burn, account)
+        print(f"### CHECKING THE BALANCE ###")
+        # Claim the burn
+        while (
+            some_dan_wallet_jrpc.get_balances(
+                account)["balances"][0]["balance"]
+            + some_dan_wallet_jrpc.get_balances(account)["balances"][0]["confidential_balance"]
+            == 0
+        ):
+            time.sleep(1)
 
-    print("### BURNED AND CLAIMED ###")
-    print("Balances:", list(DanWallets.values())
-          [0].jrpc_client.get_balances(account))
+        print("### BURNED AND CLAIMED ###")
+        print("Balances:", list(DanWallets.values())
+              [0].jrpc_client.get_balances(account))
 
     if RUN_SIGNALLING_SERVER:
         print("### Starting signalling server")
         signaling_server = SignalingServer()
 
-    print("### Creating template")
+    if STEPS_CREATE_TEMPLATE:
+        print("### Creating template")
 
-    # Call the function
-    TEMPLATE_FUNCTION = DEFAULT_TEMPLATE_FUNCTION.split("=")
-    FUNCTION_ARGS = TEMPLATE_FUNCTION[1].split(",")
+        # Call the function
+        TEMPLATE_FUNCTION = DEFAULT_TEMPLATE_FUNCTION.split("=")
+        FUNCTION_ARGS = TEMPLATE_FUNCTION[1].split(",")
 
-    print(TEMPLATE_FUNCTION)
-    print(FUNCTION_ARGS)
-    template.call_function(TEMPLATE_FUNCTION[0], next(
-        iter(VNs.values())).json_rpc_port, FUNCTION_ARGS)
+        print(TEMPLATE_FUNCTION)
+        print(FUNCTION_ARGS)
+        template.call_function(TEMPLATE_FUNCTION[0], next(
+            iter(VNs.values())).json_rpc_port, FUNCTION_ARGS)
 
     try:
         while True:
@@ -380,7 +392,7 @@ if "base_node" in locals():
 if "wallet" in locals():
     print("Wallet : ")
     print(wallet.exec.replace("-n ", ""))
-if "indexer" in locals():
+if "indexer" in locals() and indexer != {}:
     print("Indexer : ")
     print(indexer.exec.replace("-n ", ""))
 print("Miner : ")
