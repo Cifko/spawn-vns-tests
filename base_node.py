@@ -54,8 +54,8 @@ class GrpcBaseNode:
 
 class BaseNode:
     def __init__(self):
-        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
-        self.grpc_port = ports.get_free_port()
+        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('BaseNode')}"
+        self.grpc_port = ports.get_free_port("BaseNode GRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_base_node"
         else:

@@ -10,10 +10,10 @@ import subprocess
 
 class Indexer:
     def __init__(self, base_node_grpc_port, peers=[]):
-        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
-        self.json_rpc_port = ports.get_free_port()
+        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('Indexer')}"
+        self.json_rpc_port = ports.get_free_port("Indexer JRPC")
         self.json_rpc_address = f"127.0.0.1:{self.json_rpc_port}"
-        self.http_ui_address = f"127.0.0.1:{ports.get_free_port()}"
+        self.http_ui_address = f"127.0.0.1:{ports.get_free_port('Indexer HTTP')}"
         if USE_BINARY_EXECUTABLE:
             run = "tari_indexer"
         else:
@@ -45,10 +45,8 @@ class Indexer:
                 "indexer.p2p.allow_test_addresses=true",
                 "-p",
                 f"{NETWORK}.p2p.seeds.peer_seeds={','.join(peers)}",
-                # "-p",
-                # f"indexer.public_address={self.public_adress}",
                 "-p",
-                f"indexer.p2p.public_address={self.public_adress}",
+                f"indexer.p2p.public_addresses={self.public_adress}",
                 "-p",
                 f"indexer.json_rpc_address={self.json_rpc_address}",
                 "-p",

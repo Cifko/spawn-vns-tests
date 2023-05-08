@@ -9,6 +9,7 @@ import subprocess
 import signal
 import time
 
+
 class JrpcDanWalletDaemon:
     def __init__(self, jrpc_url):
         self.id = 0
@@ -63,7 +64,7 @@ class JrpcDanWalletDaemon:
 
 class DanWalletDaemon:
     def __init__(self, dan_wallet_id, validator_node_endpoint, signaling_server_addr=None):
-        self.json_rpc_port = ports.get_free_port()
+        self.json_rpc_port = ports.get_free_port(f"DanWalletDaemon{dan_wallet_id} JRPC")
         self.id = dan_wallet_id
         if USE_BINARY_EXECUTABLE:
             run = "tari_dan_wallet_daemon"
@@ -78,8 +79,8 @@ class DanWalletDaemon:
                 "localnet",
                 "--listen-addr",
                 f"127.0.0.1:{self.json_rpc_port}",
-                "--validator-node-endpoint",
-                f"http://127.0.0.1:{validator_node_endpoint}/json_rpc",
+                "--indexer_url",
+                f"http://127.0.0.1:{validator_node_endpoint}",
                 # "--signaling-server-addr",
                 # signaling_server_addr
             ]
@@ -94,7 +95,6 @@ class DanWalletDaemon:
         while not os.path.exists(f"dan_wallet_daemon{dan_wallet_id}/localnet/pid"):
             print("waiting for dan wallet to start")
             time.sleep(1)
-        
 
     def __del__(self):
         self.process.kill()
@@ -108,7 +108,7 @@ class DanWalletUI:
             npm = "npm.cmd"
         else:
             npm = "npm"
-        self.http_port = ports.get_free_port()
+        self.http_port = ports.get_free_port("DanWalletUI HTTP")
         self.id = dan_wallet_id
         self.exec = " ".join(
             [npm, "--prefix", "../tari-dan/applications/tari_dan_wallet_web_ui", "run", "dev", "--", "--port", str(self.http_port)]
@@ -135,8 +135,8 @@ class DanWalletUI:
         # self.process.kill()
         # kill all children
         try:
-          os.kill(self.process.pid, signal.CTRL_C_EVENT)
-        except: 
-          pass
+            os.kill(self.process.pid, signal.CTRL_C_EVENT)
+        except:
+            pass
         self.process.kill()
         # os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)

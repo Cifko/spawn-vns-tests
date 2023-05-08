@@ -29,10 +29,10 @@ class JrpcValidatorNode:
 
 class ValidatorNode:
     def __init__(self, base_node_grpc_port, wallet_grpc_port, node_id, peers=[]):
-        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
-        self.json_rpc_port = ports.get_free_port()
+        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port(f'ValidatorNode{node_id}')}"
+        self.json_rpc_port = ports.get_free_port(f"ValidatorNode{node_id} jrpc")
         self.json_rpc_address = f"127.0.0.1:{self.json_rpc_port}"
-        self.http_ui_address = f"127.0.0.1:{ports.get_free_port()}"
+        self.http_ui_address = f"127.0.0.1:{ports.get_free_port(f'ValidatorNode{node_id} HTTP')}"
         self.id = node_id
         if USE_BINARY_EXECUTABLE:
             run = "tari_validator_node"
