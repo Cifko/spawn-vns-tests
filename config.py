@@ -22,10 +22,10 @@ RUN_SIGNALLING_SERVER = True
 # Any one of the templates from `wasm_template`
 DEFAULT_TEMPLATE = "fungible"
 # Specify args e.g. mint=10000,10001,1. Start the value with "w:" to choose Workspace arg
-DEFAULT_TEMPLATE_FUNCTION = "mint"
-# DEFAULT_TEMPLATE_FUNCTION = "mint=1000000"
+# DEFAULT_TEMPLATE_FUNCTION = "mint"
+DEFAULT_TEMPLATE_FUNCTION = "mint=1000000"
 BURN_AMOUNT = 1000000
 NO_FEES = True
 USE_BINARY_EXECUTABLE = False
 STEPS_CREATE_ACCOUNT = True
-STEPS_CREATE_TEMPLATE = True
+STEPS_CREATE_TEMPLATE = False

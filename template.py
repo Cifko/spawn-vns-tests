@@ -1,4 +1,5 @@
 # type:ignore
+import struct
 
 from config import DEFAULT_TEMPLATE, REDIRECT_TEMPLATE_STDOUT, REDIRECT_VN_CLI_STDOUT, USE_BINARY_EXECUTABLE
 from ports import ports
@@ -84,7 +85,12 @@ class Template:
             if params[p].startswith("w:"):
                 params[p] = { "type": "Workspace", "value": params[p][2:]}
             else:
-                params[p] = { "type": "Literal", "value": params[p]}
+                try:
+                    i = int(params[p])
+                    params[p] = array.array('B', struct.pack('<I', i)).tolist()
+                except:
+                    pass
+                params[p] = { "type": "Literal", "value":  params[p] }
         result = dan_wallet_client.transaction_submit_instruction({
             "CallFunction": {
               "template_address": array.array('B', bytes.fromhex(self.id)).tolist(),

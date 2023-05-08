@@ -183,8 +183,8 @@ try:
         public_key = account["public_key"]
 
         # needs conversion from string to bytes
-        public_key = bytes(int(public_key[i: i + 2], 16)
-                           for i in range(0, len(public_key), 2))
+        # public_key = bytes(int(public_key[i: i + 2], 16)
+        #                    for i in range(0, len(public_key), 2))
         print(f"### BURNING {BURN_AMOUNT} ###")
         burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key)
 
