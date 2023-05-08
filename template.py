@@ -85,11 +85,13 @@ class Template:
                 params[p] = { "type": "Workspace", "value": params[p][2:]}
             else:
                 params[p] = { "type": "Literal", "value": params[p]}
-        return dan_wallet_client.transaction_submit_instruction({
+        result = dan_wallet_client.transaction_submit_instruction({
             "CallFunction": {
               "template_address": array.array('B', bytes.fromhex(self.id)).tolist(),
               "function": function_name,
               "args": params
             }
         })
+        print(result)
+        return result
 

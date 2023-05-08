@@ -44,7 +44,20 @@ class JrpcDanWalletDaemon:
         return self.call("accounts.list", [offset, limit])
 
     def transaction_submit_instruction(self, instruction):
-        return self.call("transactions.submit_instruction", {"instruction": instruction, "fee_account": "TestAccount", "dump_outputs_into": "TestAccount", "fee": 1})
+        tx_id = self.call("transactions.submit_instruction", {"instruction": instruction, "fee_account": "TestAccount", "dump_outputs_into": "TestAccount", "fee": 1})["hash"]
+        while True:
+          tx = self.transaction_get(tx_id)
+          status = tx["status"]
+          if status != "Pending":
+              if status == "Rejected":
+                    raise Exception(f"Transaction rejected:{tx['transaction_failure']}")
+              return tx
+          time.sleep(1)
+
+
+    def transaction_get(self, tx_id):
+        return self.call("transactions.get", {"hash": tx_id})
+
 
     def claim_burn(self, burn, account):
         account = "".join(
