@@ -43,6 +43,9 @@ class JrpcDanWalletDaemon:
     def accounts_list(self, offset=0, limit=1):
         return self.call("accounts.list", [offset, limit])
 
+    def transaction_submit_instruction(self, instruction):
+        return self.call("transactions.submit_instruction", {"instruction": instruction, "fee_account": "TestAccount", "dump_outputs_into": "TestAccount", "fee": 1})
+
     def claim_burn(self, burn, account):
         account = "".join(
             "%02X" % x for x in account["account"]["address"]["Component"]["@@TAGGED@@"][1])

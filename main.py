@@ -220,12 +220,15 @@ try:
 
         # Call the function
         TEMPLATE_FUNCTION = DEFAULT_TEMPLATE_FUNCTION.split("=")
-        FUNCTION_ARGS = TEMPLATE_FUNCTION[1].split(",")
+        if len(TEMPLATE_FUNCTION) > 1:
+            FUNCTION_ARGS = TEMPLATE_FUNCTION[1].split(",")
+        else:
+            FUNCTION_ARGS = []
 
         print(TEMPLATE_FUNCTION)
         print(FUNCTION_ARGS)
         template.call_function(TEMPLATE_FUNCTION[0], next(
-            iter(VNs.values())).json_rpc_port, FUNCTION_ARGS)
+            iter(DanWallets.values())).jrpc_client, FUNCTION_ARGS)
 
     try:
         while True:
