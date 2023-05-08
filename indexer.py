@@ -63,7 +63,7 @@ class Indexer:
         else:
             self.process = subprocess.Popen(self.exec)
 
-        self.jrpc_client = JrpcIndexer(self.json_rpc_address)
+        self.jrpc_client = JrpcIndexer(f"http://{self.json_rpc_address}")
         while not os.path.exists(f"indexer/localnet/pid"):
             print("waiting for indexer to start")
             if self.process.poll() is None:
@@ -100,6 +100,8 @@ class JrpcIndexer:
         response = requests.post(self.url, json={
                                  "jsonrpc": "2.0", "method": method, "id": 1, "params": params})
         print(response.json())
+        if "error" in response.json():
+            raise Exception(response.json()["error"])
         return response.json()["result"]
 
     def get_connections(self):
@@ -107,3 +109,6 @@ class JrpcIndexer:
 
     def get_comms_stats(self):
         self.call("get_comms_stats")
+
+    def get_substate(self, address, version):
+        return self.call("get_substate", [address, version])

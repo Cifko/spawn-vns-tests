@@ -107,27 +107,50 @@ try:
                            VNs[vn_id].get_address() for vn_id in VNs])
         VNs[vn_id] = vn
 
+
+    wait_for_vns_to_sync()
+
+    print("### REGISTER THE VNS ###")
+    # Register VNs
+    for vn_id in VNs:
+        VNs[vn_id].register()
+        # Uncomment next line if you want to have only one registeration per block
+        # miner.mine(1)
+
+        # Wait until they are all in the mempool
+    i = 0
+    while i < 10:
+        if base_node.grpc_base_node.get_mempool_size() < len(VNs) + 1:
+            print("Waiting for X tx's in mempool...")
+            time.sleep(3)
+        else:
+            break
+        i += 1
+
+    # Mining till the VNs are part of the committees
+    miner.mine(20)  # Mine the register TXs
+    time.sleep(1)
+
     indexer = {}
     if SPAWN_INDEXER:
         print("### STARTING INDEXER")
         indexer = Indexer(base_node.grpc_port, [
             VNs[vn_id].get_address() for vn_id in VNs])
         time.sleep(1)
+        # force the indexer to connect to a VN. It will not find this substate, but it needs to contact the VN
+        # to start comms
+        try:
+           indexer.jrpc_client.get_substate("component_d082c9cfb6507e302d5e252f43f4c008924648fc9bff18eaca5820a87808fc42", 0)
+        except:
+            pass
         connections = indexer.jrpc_client.get_connections()
         comms_stats = indexer.jrpc_client.get_comms_stats()
         print(connections)
         print(comms_stats)
-    print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
+    print("### CREATING DAN WALLETS DAEMONS ###")
 
-    wait_for_vns_to_sync()
-
-    print("here")
     DanWallets = {}
-    # Register VNs
-    for vn_id in VNs:
-        VNs[vn_id].register()
-        # Uncomment next line if you want to have only one registeration per block
-        # miner.mine(1)
+
 
     if indexer == {} and SPAWN_WALLETS > 0:
         raise Exception("Can't create a wallet when there is no indexer")
@@ -146,19 +169,7 @@ try:
     template.publish_template(
         next(iter(VNs.values())).json_rpc_port, server.port)
 
-    # Wait until they are all in the mempool
-    i = 0
-    while i < 10:
-        if base_node.grpc_base_node.get_mempool_size() < len(VNs) + 1:
-            print("Waiting for X tx's in mempool...")
-            time.sleep(3)
-        else:
-            break
-        i += 1
 
-    # Mining till the VNs are part of the committees
-    miner.mine(20)  # Mine the register TXs
-    time.sleep(1)
 
     # Wait for the VNs to pickup the blocks from base layer
     # TODO wait for VN to download and activate the template
