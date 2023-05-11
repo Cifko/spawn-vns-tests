@@ -10,7 +10,6 @@ import subprocess
 
 
 class Indexer:
-
     def __init__(self, base_node_grpc_port, peers=[]):
         self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('Indexer')}"
         self.json_rpc_port = ports.get_free_port("Indexer JRPC")
@@ -56,8 +55,7 @@ class Indexer:
             ]
         )
         if REDIRECT_INDEXER_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open(
-                "stdout/indexer.log", "a+"), stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen(self.exec, stdout=open("stdout/indexer.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
 
@@ -67,8 +65,7 @@ class Indexer:
             if self.process.poll() is None:
                 time.sleep(1)
             else:
-                raise Exception(
-                    f"Indexer did not start successfully: Exit code:{self.process.poll()}")
+                raise Exception(f"Indexer did not start successfully: Exit code:{self.process.poll()}")
 
     def get_address(self):
         if NETWORK == "localnet":
@@ -95,8 +92,7 @@ class JrpcIndexer:
         self.url = jrpc_url
 
     def call(self, method, params=[]):
-        response = requests.post(self.url, json={
-                                 "jsonrpc": "2.0", "method": method, "id": 1, "params": params})
+        response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": 1, "params": params})
         print(response.json())
         if "error" in response.json():
             raise Exception(response.json()["error"])

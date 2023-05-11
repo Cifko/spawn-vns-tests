@@ -1,6 +1,18 @@
 # type:ignore
 from base_node import BaseNode
-from config import DELETE_EVERYTHING_BEFORE, DELETE_STDOUT_LOGS, SPAWN_VNS, SPAWN_WALLETS, SPAWN_INDEXER, RUN_SIGNALLING_SERVER, BURN_AMOUNT, DEFAULT_TEMPLATE_FUNCTION, USE_BINARY_EXECUTABLE, STEPS_CREATE_ACCOUNT, STEPS_CREATE_TEMPLATE
+from config import (
+    DELETE_EVERYTHING_BEFORE,
+    DELETE_STDOUT_LOGS,
+    SPAWN_VNS,
+    SPAWN_WALLETS,
+    SPAWN_INDEXER,
+    RUN_SIGNALLING_SERVER,
+    BURN_AMOUNT,
+    DEFAULT_TEMPLATE_FUNCTION,
+    USE_BINARY_EXECUTABLE,
+    STEPS_CREATE_ACCOUNT,
+    STEPS_CREATE_TEMPLATE,
+)
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
 from miner import Miner
@@ -132,13 +144,12 @@ try:
     indexer = {}
     if SPAWN_INDEXER:
         print("### STARTING INDEXER")
-        indexer = Indexer(base_node.grpc_port, [
-            VNs[vn_id].get_address() for vn_id in VNs])
+        indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
         time.sleep(1)
         # force the indexer to connect to a VN. It will not find this substate, but it needs to contact the VN
         # to start comms
         try:
-           indexer.jrpc_client.get_substate("component_d082c9cfb6507e302d5e252f43f4c008924648fc9bff18eaca5820a87808fc42", 0)
+            indexer.jrpc_client.get_substate("component_d082c9cfb6507e302d5e252f43f4c008924648fc9bff18eaca5820a87808fc42", 0)
         except:
             pass
         connections = indexer.jrpc_client.get_connections()
@@ -149,13 +160,18 @@ try:
 
     DanWallets = {}
 
-
     if indexer == {} and SPAWN_WALLETS > 0:
         raise Exception("Can't create a wallet when there is no indexer")
 
+    signaling_server_jrpc_port = None
+    if RUN_SIGNALLING_SERVER:
+        print("### Starting signalling server")
+        signaling_server = SignalingServer()
+        signaling_server_jrpc_port = signaling_server.json_rpc_port
+
     for dwallet_id in range(SPAWN_WALLETS):
         # vn_id = min(SPAWN_VNS - 1, dwallet_id)
-        DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port, signaling_server.json_rpc_port)
+        DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port, signaling_server_jrpc_port)
 
     wait_for_vns_to_sync()
 
@@ -170,8 +186,6 @@ try:
     # Publish template
     print("### PUBLISHING TEMPLATE ###")
     template.publish_template(next(iter(VNs.values())).json_rpc_port, server.port)
-
-
 
     # Wait for the VNs to pickup the blocks from base layer
     # TODO wait for VN to download and activate the template
@@ -202,20 +216,14 @@ try:
         print(f"### CHECKING THE BALANCE ###")
         # Claim the burn
         while (
-            some_dan_wallet_jrpc.get_balances(
-                account)["balances"][0]["balance"]
+            some_dan_wallet_jrpc.get_balances(account)["balances"][0]["balance"]
             + some_dan_wallet_jrpc.get_balances(account)["balances"][0]["confidential_balance"]
             == 0
         ):
             time.sleep(1)
 
         print("### BURNED AND CLAIMED ###")
-        print("Balances:", list(DanWallets.values())
-              [0].jrpc_client.get_balances(account))
-
-    if RUN_SIGNALLING_SERVER:
-        print("### Starting signalling server")
-        signaling_server = SignalingServer()
+        print("Balances:", list(DanWallets.values())[0].jrpc_client.get_balances(account))
 
     if STEPS_CREATE_TEMPLATE:
         print("### Creating template")
@@ -229,8 +237,7 @@ try:
 
         print(TEMPLATE_FUNCTION)
         print(FUNCTION_ARGS)
-        template.call_function(TEMPLATE_FUNCTION[0], next(
-            iter(DanWallets.values())).jrpc_client, FUNCTION_ARGS)
+        template.call_function(TEMPLATE_FUNCTION[0], next(iter(DanWallets.values())).jrpc_client, FUNCTION_ARGS)
 
     try:
         while True:
