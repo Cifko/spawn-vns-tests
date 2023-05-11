@@ -63,7 +63,7 @@ class JrpcDanWalletDaemon:
 
 
 class DanWalletDaemon:
-    def __init__(self, dan_wallet_id, validator_node_endpoint, signaling_server_addr=None):
+    def __init__(self, dan_wallet_id, validator_node_endpoint, signaling_server_addr):
         self.json_rpc_port = ports.get_free_port(f"DanWalletDaemon{dan_wallet_id} JRPC")
         self.id = dan_wallet_id
         if USE_BINARY_EXECUTABLE:
@@ -81,8 +81,8 @@ class DanWalletDaemon:
                 f"127.0.0.1:{self.json_rpc_port}",
                 "--indexer_url",
                 f"http://127.0.0.1:{validator_node_endpoint}",
-                # "--signaling-server-addr",
-                # signaling_server_addr
+                "--signaling_server_address",
+                f"127.0.0.1:{signaling_server_addr}",
             ]
         )
         if self.id >= REDIRECT_DAN_WALLET_STDOUT:

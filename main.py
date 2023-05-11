@@ -119,6 +119,10 @@ try:
     print("### STARTING INDEXER ###")
     indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
     time.sleep(1)
+    if RUN_SIGNALLING_SERVER:
+        print("### Starting signalling server")
+        signaling_server = SignalingServer()
+
     print("### REGISTERING VNS AND CREATING DAN WALLETS DAEMONS ###")
 
     wait_for_vns_to_sync()
@@ -133,7 +137,7 @@ try:
 
     for dwallet_id in range(SPAWN_WALLETS):
         # vn_id = min(SPAWN_VNS - 1, dwallet_id)
-        DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port)
+        DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port, signaling_server.json_rpc_port)
 
     wait_for_vns_to_sync()
 
@@ -200,10 +204,6 @@ try:
 
     print("### BURNED AND CLAIMED ###")
     print("Balances:", list(DanWallets.values())[0].jrpc_client.get_balances(account))
-
-    if RUN_SIGNALLING_SERVER:
-        print("### Starting signalling server")
-        signaling_server = SignalingServer()
 
     print("### Creating template")
 
