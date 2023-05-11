@@ -82,8 +82,8 @@ class JrpcDanWalletDaemon:
 
 
 class DanWalletDaemon:
-    def __init__(self, dan_wallet_id, indexer_url, signaling_server_addr=None):
-        self.json_rpc_port = ports.get_free_port()
+    def __init__(self, dan_wallet_id, indexer_url, signaling_server_addr):
+        self.json_rpc_port = ports.get_free_port(f"DanWalletDaemon{dan_wallet_id} JRPC")
         self.id = dan_wallet_id
         if USE_BINARY_EXECUTABLE:
             run = "tari_dan_wallet_daemon"
@@ -101,8 +101,8 @@ class DanWalletDaemon:
                 f"127.0.0.1:{self.json_rpc_port}",
                 "--indexer_url",
                 f"http://127.0.0.1:{indexer_url}/json_rpc",
-                # "--signaling-server-addr",
-                # signaling_server_addr
+                "--signaling_server_address",
+                f"127.0.0.1:{signaling_server_addr}",
             ]
         )
         if self.id >= REDIRECT_DAN_WALLET_STDOUT:
@@ -135,7 +135,7 @@ class DanWalletUI:
             npm = "npm.cmd"
         else:
             npm = "npm"
-        self.http_port = ports.get_free_port()
+        self.http_port = ports.get_free_port("DanWalletUI HTTP")
         self.id = dan_wallet_id
         self.exec = " ".join(
             [npm, "--prefix", "../tari-dan/applications/tari_dan_wallet_web_ui",

@@ -39,8 +39,8 @@ class GrpcWallet:
 
 class Wallet:
     def __init__(self, base_node_address):
-        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port()}"
-        self.grpc_port = ports.get_free_port()
+        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('Wallet')}"
+        self.grpc_port = ports.get_free_port("Wallet GRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_console_wallet"
         else:

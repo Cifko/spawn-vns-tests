@@ -18,10 +18,11 @@ class Ports:
     def __init__(self):
         self.last_used = 18003
 
-    def get_free_port(self):
+    def get_free_port(self, name):
         self.last_used += 1
         while is_port_used(self.last_used):
             self.last_used += 1
+        print(f"Port {self.last_used} has been assigned to {name}")
         return self.last_used
 
 

@@ -1,3 +1,4 @@
+# type:ignore
 import os
 import subprocess
 import time
@@ -7,12 +8,11 @@ from config import USE_BINARY_EXECUTABLE, REDIRECT_SIGNALING_STDOUT
 
 class SignalingServer:
     def __init__(self):
-        self.json_rpc_port = ports.get_free_port()
+        self.json_rpc_port = ports.get_free_port("Signaling server")
         if USE_BINARY_EXECUTABLE:
             run = "tari_signaling_server"
         else:
-            run = " ".join(["cargo", "run", "--bin", "tari_signaling_server",
-                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
+            run = " ".join(["cargo", "run", "--bin", "tari_signaling_server", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
         self.exec = " ".join(
             [
                 run,
@@ -23,8 +23,7 @@ class SignalingServer:
             ]
         )
         if REDIRECT_SIGNALING_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open(
-                f"stdout/signaling.log", "a+"), stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/signaling.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
         # jrpc_address = f"http://127.0.0.1:{self.json_rpc_port}"
