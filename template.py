@@ -1,10 +1,12 @@
 # type:ignore
+import struct
 
 from config import DEFAULT_TEMPLATE, REDIRECT_TEMPLATE_STDOUT, REDIRECT_VN_CLI_STDOUT, USE_BINARY_EXECUTABLE
 from ports import ports
 import subprocess
 import re
 import os
+import array
 
 
 class Template:
@@ -78,37 +80,24 @@ class Template:
         else:
             print("Registration failed", result.stdout.decode())
 
-    def call_function(self, function_name, jrpc_port, params=[]):
-        if USE_BINARY_EXECUTABLE:
-            run = "tari_validator_node_cli"
-        else:
-            run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli",
-                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
-        joined_params = " -a ".join(params)
-        if joined_params != "":
-            joined_params = "-a " + joined_params
-        exec = " ".join(
-            [
-                run,
-                "--vn-daemon-jrpc-endpoint",
-                f"/ip4/127.0.0.1/tcp/{jrpc_port}",
-                "transactions",
-                "submit",
-                "-n",
-                "1",
-                "-w",
-                "call-function",
-                f"{self.id}",
-                function_name,
-                joined_params
-            ]
-        )
-        if REDIRECT_VN_CLI_STDOUT:
-            proc = subprocess.run(exec, stdout=open(
-                f"stdout/vn_cli_for_template_{self.name}.log", "a+"), stderr=subprocess.STDOUT)
-            if proc.returncode != 0:
-                raise Exception("Template function did not succeed")
-        else:
-            proc = subprocess.run(exec)
-            if proc.returncode != 0:
-                raise Exception("Template function did not succeed")
+    def call_function(self, function_name, dan_wallet_client, params=[]):
+        for p in range(len(params)):
+            if params[p].startswith("w:"):
+                params[p] = { "type": "Workspace", "value": params[p][2:]}
+            else:
+                try:
+                    i = int(params[p])
+                    params[p] = array.array('B', struct.pack('<I', i)).tolist()
+                except:
+                    pass
+                params[p] = { "type": "Literal", "value":  params[p] }
+        result = dan_wallet_client.transaction_submit_instruction({
+            "CallFunction": {
+              "template_address": array.array('B', bytes.fromhex(self.id)).tolist(),
+              "function": function_name,
+              "args": params
+            }
+        })
+        print(result)
+        return result
+

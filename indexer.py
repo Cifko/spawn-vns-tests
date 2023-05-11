@@ -5,10 +5,12 @@ from ports import ports
 import os
 import time
 import re
+import requests
 import subprocess
 
 
 class Indexer:
+
     def __init__(self, base_node_grpc_port, peers=[]):
         self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('Indexer')}"
         self.json_rpc_port = ports.get_free_port("Indexer JRPC")
@@ -54,9 +56,19 @@ class Indexer:
             ]
         )
         if REDIRECT_INDEXER_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/indexer.log", "a+"), stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen(self.exec, stdout=open(
+                "stdout/indexer.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
+
+        self.jrpc_client = JrpcIndexer(f"http://{self.json_rpc_address}")
+        while not os.path.exists(f"indexer/localnet/pid"):
+            print("waiting for indexer to start")
+            if self.process.poll() is None:
+                time.sleep(1)
+            else:
+                raise Exception(
+                    f"Indexer did not start successfully: Exit code:{self.process.poll()}")
 
     def get_address(self):
         if NETWORK == "localnet":
@@ -76,3 +88,25 @@ class Indexer:
     def __del__(self):
         print("indexer kill")
         self.process.kill()
+
+
+class JrpcIndexer:
+    def __init__(self, jrpc_url):
+        self.url = jrpc_url
+
+    def call(self, method, params=[]):
+        response = requests.post(self.url, json={
+                                 "jsonrpc": "2.0", "method": method, "id": 1, "params": params})
+        print(response.json())
+        if "error" in response.json():
+            raise Exception(response.json()["error"])
+        return response.json()["result"]
+
+    def get_connections(self):
+        self.call("get_connections")
+
+    def get_comms_stats(self):
+        self.call("get_comms_stats")
+
+    def get_substate(self, address, version):
+        return self.call("get_substate", [address, version])

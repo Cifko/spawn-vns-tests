@@ -21,7 +21,8 @@ class JrpcDanWalletDaemon:
         headers = None
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
-        response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
+        response = requests.post(self.url, json={
+                                 "jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
         print(response.json())
         return response.json()["result"]
 
@@ -42,8 +43,25 @@ class JrpcDanWalletDaemon:
     def accounts_list(self, offset=0, limit=1):
         return self.call("accounts.list", [offset, limit])
 
+    def transaction_submit_instruction(self, instruction):
+        tx_id = self.call("transactions.submit_instruction", {"instruction": instruction, "fee_account": "TestAccount", "dump_outputs_into": "TestAccount", "fee": 1})["hash"]
+        while True:
+          tx = self.transaction_get(tx_id)
+          status = tx["status"]
+          if status != "Pending":
+              if status == "Rejected":
+                    raise Exception(f"Transaction rejected:{tx['transaction_failure']}")
+              return tx
+          time.sleep(1)
+
+
+    def transaction_get(self, tx_id):
+        return self.call("transactions.get", {"hash": tx_id})
+
+
     def claim_burn(self, burn, account):
-        account = "".join("%02X" % x for x in account["account"]["address"]["Component"]["@@TAGGED@@"][1])
+        account = "".join(
+            "%02X" % x for x in account["account"]["address"]["Component"]["@@TAGGED@@"][1])
         claim_proof = {
             "commitment": base64.b64encode(burn.commitment).decode("utf-8"),
             "range_proof": base64.b64encode(burn.range_proof).decode("utf-8"),
@@ -55,7 +73,8 @@ class JrpcDanWalletDaemon:
             },
         }
 
-        ClaimBurnRequest = {"account": account, "claim_proof": claim_proof, "fee": 10}
+        ClaimBurnRequest = {"account": account,
+                            "claim_proof": claim_proof, "fee": 10}
         return self.call("accounts.claim_burn", ClaimBurnRequest)
 
     def get_balances(self, account):
@@ -63,13 +82,14 @@ class JrpcDanWalletDaemon:
 
 
 class DanWalletDaemon:
-    def __init__(self, dan_wallet_id, validator_node_endpoint, signaling_server_addr):
+    def __init__(self, dan_wallet_id, indexer_url, signaling_server_addr):
         self.json_rpc_port = ports.get_free_port(f"DanWalletDaemon{dan_wallet_id} JRPC")
         self.id = dan_wallet_id
         if USE_BINARY_EXECUTABLE:
             run = "tari_dan_wallet_daemon"
         else:
-            run = " ".join(["cargo", "run", "--bin", "tari_dan_wallet_daemon", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
+            run = " ".join(["cargo", "run", "--bin", "tari_dan_wallet_daemon",
+                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
         self.exec = " ".join(
             [
                 run,
@@ -80,21 +100,28 @@ class DanWalletDaemon:
                 "--listen-addr",
                 f"127.0.0.1:{self.json_rpc_port}",
                 "--indexer_url",
-                f"http://127.0.0.1:{validator_node_endpoint}",
+                f"http://127.0.0.1:{indexer_url}/json_rpc",
                 "--signaling_server_address",
                 f"127.0.0.1:{signaling_server_addr}",
             ]
         )
         if self.id >= REDIRECT_DAN_WALLET_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open(f"stdout/dan_wallet_{self.id}.log", "a+"), stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen(self.exec, stdout=open(
+                f"stdout/dan_wallet_{self.id}.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.process = subprocess.Popen(self.exec)
+
+        # (out, err) = self.process.communicate()
         jrpc_address = f"http://127.0.0.1:{self.json_rpc_port}"
         self.jrpc_client = JrpcDanWalletDaemon(jrpc_address)
         self.http_client = DanWalletUI(self.id, jrpc_address)
         while not os.path.exists(f"dan_wallet_daemon{dan_wallet_id}/localnet/pid"):
             print("waiting for dan wallet to start")
-            time.sleep(1)
+            if self.process.poll() is None:
+                time.sleep(1)
+            else:
+                raise Exception(
+                    f"DAN wallet did not start successfully: Exit code:{self.process.poll()}")
 
     def __del__(self):
         self.process.kill()
@@ -111,7 +138,8 @@ class DanWalletUI:
         self.http_port = ports.get_free_port("DanWalletUI HTTP")
         self.id = dan_wallet_id
         self.exec = " ".join(
-            [npm, "--prefix", "../tari-dan/applications/tari_dan_wallet_web_ui", "run", "dev", "--", "--port", str(self.http_port)]
+            [npm, "--prefix", "../tari-dan/applications/tari_dan_wallet_web_ui",
+                "run", "dev", "--", "--port", str(self.http_port)]
         )
         env = os.environ.copy()
         env["VITE_DAEMON_JRPC_ADDRESS"] = daemon_jrpc_address
@@ -124,7 +152,8 @@ class DanWalletUI:
                 env=env,
             )
         else:
-            self.process = subprocess.Popen(self.exec, stdin=subprocess.PIPE, env=env)
+            self.process = subprocess.Popen(
+                self.exec, stdin=subprocess.PIPE, env=env)
 
     def __del__(self):
         print("del wallet ui")
