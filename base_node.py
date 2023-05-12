@@ -10,11 +10,10 @@ except:
     exit()
 
 from config import NETWORK, REDIRECT_BASE_NODE_STDOUT, USE_BINARY_EXECUTABLE
-from ports import ports
 import os
 import re
-import subprocess
 import time
+from common_exec import CommonExec
 
 
 class GrpcBaseNode:
@@ -48,14 +47,16 @@ class GrpcBaseNode:
         request = types_pb2.Empty()
         return self.stub.GetTipInfo(request)
 
-    def get_tip(self):
+    def get_tip(self) -> int:
         return self.get_tip_info().metadata.height_of_longest_chain
 
 
-class BaseNode:
+class BaseNode(CommonExec):
     def __init__(self):
-        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('BaseNode')}"
-        self.grpc_port = ports.get_free_port("BaseNode GRPC")
+        super().__init__("base_node")
+        self.public_port = self.get_port("public_address")
+        self.public_address = f"/ip4/127.0.0.1/tcp/{self.public_port}"
+        self.grpc_port = self.get_port("GRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_base_node"
         else:
@@ -86,14 +87,16 @@ class BaseNode:
                 "base_node.metadata_auto_ping_interval=3",
             ]
         )
-        if REDIRECT_BASE_NODE_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/base_node.log", "a+"), stderr=subprocess.STDOUT)
-        else:
-            self.process = subprocess.Popen(self.exec)
-        self.grpc_base_node = GrpcBaseNode(f"127.0.0.1:{self.grpc_port}")
-
-    def __del__(self):
-        self.process.kill()
+        self.run(REDIRECT_BASE_NODE_STDOUT)
+        # Sometimes it takes a while to establish the grpc connection
+        while True:
+            try:
+                self.grpc_client = GrpcBaseNode(f"127.0.0.1:{self.grpc_port}")
+                self.grpc_client.get_version()
+                break
+            except:
+                pass
+            time.sleep(0.3)
 
     def get_address(self):
         base_node_id_file_name = f"./base_node/{NETWORK}/config/base_node_id.json"

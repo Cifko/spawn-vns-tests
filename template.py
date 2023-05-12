@@ -3,6 +3,8 @@ import struct
 
 from config import DEFAULT_TEMPLATE, REDIRECT_TEMPLATE_STDOUT, REDIRECT_VN_CLI_STDOUT, USE_BINARY_EXECUTABLE
 from ports import ports
+from dan_wallet_daemon import JrpcDanWalletDaemon
+from typing import Any
 import subprocess
 import re
 import os
@@ -25,12 +27,10 @@ class Template:
         os.chdir("templates")
 
         exec = " ".join(
-            ["cargo", "generate", "--git", "https://github.com/tari-project/wasm-template.git",
-                "-s", self.template, "-n", self.name]
+            ["cargo", "generate", "--git", "https://github.com/tari-project/wasm-template.git", "-s", self.template, "-n", self.name]
         )
         if REDIRECT_TEMPLATE_STDOUT:
-            subprocess.call(exec, stdout=open(
-                f"../stdout/template_{self.name}_cargo_generate.log", "a+"), stderr=subprocess.STDOUT)
+            subprocess.call(exec, stdout=open(f"../stdout/template_{self.name}_cargo_generate.log", "a+"), stderr=subprocess.STDOUT)
         else:
             subprocess.call(exec)
         os.chdir(wd)
@@ -38,22 +38,18 @@ class Template:
     def compile(self):
         wd = os.getcwd()
         os.chdir(f"templates/{self.name}/package")
-        exec = " ".join(
-            ["cargo", "build", "--target", "wasm32-unknown-unknown", "--release"]
-        )
+        exec = " ".join(["cargo", "build", "--target", "wasm32-unknown-unknown", "--release"])
         if REDIRECT_TEMPLATE_STDOUT:
-            subprocess.call(exec, stdout=open(
-                f"../../../stdout/template_{self.name}_cargo_build.log", "a+"), stderr=subprocess.STDOUT)
+            subprocess.call(exec, stdout=open(f"../../../stdout/template_{self.name}_cargo_build.log", "a+"), stderr=subprocess.STDOUT)
         else:
             subprocess.call(exec)
         os.chdir(wd)
 
-    def publish_template(self, jrpc_port, server_port):
+    def publish_template(self, jrpc_port: int, server_port: int):
         if USE_BINARY_EXECUTABLE:
             run = "tari_validator_node_cli"
         else:
-            run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli",
-                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
+            run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
 
         exec = " ".join(
             [
@@ -80,24 +76,25 @@ class Template:
         else:
             print("Registration failed", result.stdout.decode())
 
-    def call_function(self, function_name, dan_wallet_client, params=[]):
+    def call_function(self, function_name: str, dan_wallet_client: JrpcDanWalletDaemon, params: list[Any] = []):
         for p in range(len(params)):
             if params[p].startswith("w:"):
-                params[p] = { "type": "Workspace", "value": params[p][2:]}
+                params[p] = {"type": "Workspace", "value": params[p][2:]}
             else:
                 try:
                     i = int(params[p])
-                    params[p] = array.array('B', struct.pack('<I', i)).tolist()
+                    params[p] = array.array("B", struct.pack("<I", i)).tolist()
                 except:
                     pass
-                params[p] = { "type": "Literal", "value":  params[p] }
-        result = dan_wallet_client.transaction_submit_instruction({
-            "CallFunction": {
-              "template_address": array.array('B', bytes.fromhex(self.id)).tolist(),
-              "function": function_name,
-              "args": params
+                params[p] = {"type": "Literal", "value": params[p]}
+        result = dan_wallet_client.transaction_submit_instruction(
+            {
+                "CallFunction": {
+                    "template_address": array.array("B", bytes.fromhex(self.id)).tolist(),
+                    "function": function_name,
+                    "args": params,
+                }
             }
-        })
+        )
         print(result)
         return result
-

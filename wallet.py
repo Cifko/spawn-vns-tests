@@ -9,9 +9,9 @@ except:
     print("You forgot to generate protos, run protos.sh or protos.bat")
     exit()
 
-from ports import ports
 from config import NETWORK, REDIRECT_WALLET_STDOUT, USE_BINARY_EXECUTABLE
-import subprocess
+from typing import Any
+from common_exec import CommonExec
 
 
 class GrpcWallet:
@@ -32,15 +32,21 @@ class GrpcWallet:
         request = wallet_pb2.GetBalanceRequest()
         return self.stub.GetBalance(request)
 
-    def burn(self, amount, claim_public_key, fee_per_gram=5):
+    def burn(self, amount: int, claim_public_key: bytes, fee_per_gram: int = 5) -> Any:
+        print("amount", amount, type(amount))
+        print("claim_public_key", claim_public_key, type(claim_public_key))
+        print("fee_per_gram", fee_per_gram, type(fee_per_gram))
         request = wallet_pb2.CreateBurnTransactionRequest(amount=amount, fee_per_gram=fee_per_gram, claim_public_key=claim_public_key)
+        print(request)
         return self.stub.CreateBurnTransaction(request)
 
 
-class Wallet:
+class Wallet(CommonExec):
     def __init__(self, base_node_address):
-        self.public_address = f"/ip4/127.0.0.1/tcp/{ports.get_free_port('Wallet')}"
-        self.grpc_port = ports.get_free_port("Wallet GRPC")
+        super().__init__("Wallet")
+        self.public_port = self.get_port("public_address")
+        self.public_address = f"/ip4/127.0.0.1/tcp/{self.public_port}"
+        self.grpc_port = self.get_port("GRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_console_wallet"
         else:
@@ -72,13 +78,13 @@ class Wallet:
                 f'{NETWORK}.p2p.seeds.peer_seeds=""',
             ]
         )
-        if REDIRECT_WALLET_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open("stdout/wallet.log", "a+"), stderr=subprocess.STDOUT)
-        else:
-            self.process = subprocess.Popen(self.exec)
-
-    def init_grpc(self):
-        self.grpc_client = GrpcWallet(f"127.0.0.1:{self.grpc_port}")
-
-    def __del__(self):
-        self.process.kill()
+        self.run(REDIRECT_WALLET_STDOUT)
+        # Sometimes it takes a while to establish the grpc connection
+        while True:
+            try:
+                self.grpc_client = GrpcWallet(f"127.0.0.1:{self.grpc_port}")
+                self.grpc_client.get_version()
+                break
+            except:
+                pass
+            time.sleep(0.3)

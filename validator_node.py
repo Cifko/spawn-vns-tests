@@ -7,6 +7,7 @@ import os
 import time
 import re
 import requests
+from common_exec import CommonExec
 
 
 class JrpcValidatorNode:
@@ -17,8 +18,7 @@ class JrpcValidatorNode:
 
     def internal_call(self, method, params=[]):
         self.id += 1
-        response = requests.post(self.url, json={
-                                 "jsonrpc": "2.0", "method": method, "id": self.id, "params": params})
+        response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params})
         return response.json()["result"]
 
     def call(self, method, params=[]):
@@ -28,18 +28,19 @@ class JrpcValidatorNode:
         return self.call("get_epoch_manager_stats")
 
 
-class ValidatorNode:
+class ValidatorNode(CommonExec):
     def __init__(self, base_node_grpc_port, wallet_grpc_port, node_id, peers=[]):
-        self.public_adress = f"/ip4/127.0.0.1/tcp/{ports.get_free_port(f'ValidatorNode{node_id}')}"
-        self.json_rpc_port = ports.get_free_port(f"ValidatorNode{node_id} jrpc")
+        super().__init__("validator_node", node_id)
+        self.public_port = self.get_port("public_address")
+        self.public_adress = f"/ip4/127.0.0.1/tcp/{self.public_port}"
+        self.json_rpc_port = self.get_port("JRPC")
         self.json_rpc_address = f"127.0.0.1:{self.json_rpc_port}"
-        self.http_ui_address = f"127.0.0.1:{ports.get_free_port(f'ValidatorNode{node_id} HTTP')}"
-        self.id = node_id
+        self.http_port = self.get_port("HTTP")
+        self.http_ui_address = f"127.0.0.1:{self.http_port}"
         if USE_BINARY_EXECUTABLE:
             run = "tari_validator_node"
         else:
-            run = " ".join(["cargo", "run", "--bin", "tari_validator_node",
-                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
+            run = " ".join(["cargo", "run", "--bin", "tari_validator_node", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
         self.exec = " ".join(
             [
                 run,
@@ -71,20 +72,15 @@ class ValidatorNode:
                 f"validator_node.no_fees={NO_FEES}",
             ]
         )
-        if self.id >= REDIRECT_VN_FROM_INDEX_STDOUT:
-            self.process = subprocess.Popen(self.exec, stdout=open(
-                f"stdout/vn_{node_id}.log", "a+"), stderr=subprocess.STDOUT)
-        else:
-            self.process = subprocess.Popen(self.exec)
-        while not os.path.exists(f"vn{node_id}/localnet/pid"):
-            print("waiting for VN to start")
-            if self.process.poll() is None:
-                time.sleep(1)
-            else:
-                raise Exception(
-                    f"Indexer did not start successfully: Exit code:{self.process.poll()}")
-        self.jrpc_client = JrpcValidatorNode(
-            f"http://127.0.0.1:{self.json_rpc_port}")
+        self.run(REDIRECT_VN_FROM_INDEX_STDOUT)
+        # while not os.path.exists(f"vn{node_id}/localnet/pid"):
+        #     print("waiting for VN to start")
+        #     if self.process.poll() is None:
+        #         time.sleep(1)
+        #     else:
+        #         raise Exception(
+        #             f"Indexer did not start successfully: Exit code:{self.process.poll()}")
+        self.jrpc_client = JrpcValidatorNode(f"http://127.0.0.1:{self.json_rpc_port}")
 
     def get_address(self):
         validator_node_id_file_name = f"./vn{self.id}/{NETWORK}/validator_node_id.json"
@@ -98,20 +94,13 @@ class ValidatorNode:
         public_address = public_address.replace("\\/", "/")
         return f"{public_key}::{public_address}"
 
-    def __del__(self):
-        print("vn kill")
-        self.process.kill()
-
     def register(self):
         if USE_BINARY_EXECUTABLE:
             run = "tari_validator_node_cli"
         else:
-            run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli",
-                           "--manifest-path", "../tari-dan/Cargo.toml", "--"])
-        self.exec_cli = " ".join([run, "--vn-daemon-jrpc-endpoint",
-                                 f"/ip4/127.0.0.1/tcp/{self.json_rpc_port}", "vn", "register"])
+            run = " ".join(["cargo", "run", "--bin", "tari_validator_node_cli", "--manifest-path", "../tari-dan/Cargo.toml", "--"])
+        self.exec_cli = " ".join([run, "--vn-daemon-jrpc-endpoint", f"/ip4/127.0.0.1/tcp/{self.json_rpc_port}", "vn", "register"])
         if self.id >= REDIRECT_VN_FROM_INDEX_STDOUT:
-            self.cli_process = subprocess.call(self.exec_cli, stdout=open(
-                f"stdout/vn_{self.id}_cli.log", "a+"), stderr=subprocess.STDOUT)
+            self.cli_process = subprocess.call(self.exec_cli, stdout=open(f"stdout/vn_{self.id}_cli.log", "a+"), stderr=subprocess.STDOUT)
         else:
             self.cli_process = subprocess.call(self.exec_cli)

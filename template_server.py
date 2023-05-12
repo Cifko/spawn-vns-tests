@@ -29,10 +29,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 class Server:
     def run(self, server_class=HTTPServer, handler_class=RequestHandler):
-        self.port = ports.get_free_port("HTTP Server")
+        self.port = ports.get_free_port("Server HTTP")
         server_address = ("", self.port)
         self.httpd = server_class(server_address, handler_class)
-        print(f"Starting httpd on port {self.port}...")
         self.server = threading.Thread(target=self.httpd.serve_forever)
         self.server.start()
 

@@ -10,7 +10,7 @@ class Miner:
             run = "tari_miner"
         else:
             run = " ".join(["cargo", "run", "--bin", "tari_miner", "--manifest-path", "../tari/Cargo.toml", "--"])
-        self.exec = " ".join(
+        self.exec_template = " ".join(
             [
                 run,
                 "-b",
@@ -28,7 +28,8 @@ class Miner:
             ]
         )
 
-    def mine(self, blocks):
+    def mine(self, blocks: int):
+        self.exec = self.exec_template.replace("#blocks", str(blocks))
         if REDIRECT_MINER_STDOUT:
             self.process = subprocess.call(
                 self.exec.replace("#blocks", str(blocks)), stdout=open("stdout/miner.log", "a+"), stderr=subprocess.STDOUT
