@@ -12,7 +12,7 @@ from common_exec import CommonExec
 
 class Indexer(CommonExec):
     def __init__(self, base_node_grpc_port, peers=[]):
-        super().__init__("indexer")
+        super().__init__("Indexer")
         self.public_port = self.get_port("public_address")
         self.public_adress = f"/ip4/127.0.0.1/tcp/{self.public_port}"
         self.json_rpc_port = self.get_port("JRPC")
@@ -61,7 +61,7 @@ class Indexer(CommonExec):
         self.run(REDIRECT_INDEXER_STDOUT)
         self.jrpc_client = JrpcIndexer(f"http://{self.json_rpc_address}")
         # while not os.path.exists(f"indexer/localnet/pid"):
-        #     print("waiting for indexer to start")
+        #     print("Waiting for indexer to start")
         #     if self.process.poll() is None:
         #         time.sleep(1)
         #     else:
@@ -89,7 +89,6 @@ class JrpcIndexer:
 
     def call(self, method, params=[]):
         response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": 1, "params": params})
-        print(response.json())
         if "error" in response.json():
             raise Exception(response.json()["error"])
         return response.json()["result"]

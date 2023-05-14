@@ -35,6 +35,7 @@ class Server:
         self.server = threading.Thread(target=self.httpd.serve_forever)
         self.server.start()
 
-    def stop(self):
-        t = threading.Thread(target=self.httpd.shutdown)
-        t.start()
+    def __del__(self):
+        if self.httpd:
+            t = threading.Thread(target=self.httpd.shutdown)
+            t.start()

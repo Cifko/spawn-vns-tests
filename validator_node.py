@@ -30,7 +30,7 @@ class JrpcValidatorNode:
 
 class ValidatorNode(CommonExec):
     def __init__(self, base_node_grpc_port, wallet_grpc_port, node_id, peers=[]):
-        super().__init__("validator_node", node_id)
+        super().__init__("Validator_node", node_id)
         self.public_port = self.get_port("public_address")
         self.public_adress = f"/ip4/127.0.0.1/tcp/{self.public_port}"
         self.json_rpc_port = self.get_port("JRPC")
@@ -74,7 +74,7 @@ class ValidatorNode(CommonExec):
         )
         self.run(REDIRECT_VN_FROM_INDEX_STDOUT)
         # while not os.path.exists(f"vn{node_id}/localnet/pid"):
-        #     print("waiting for VN to start")
+        #     print("Waiting for VN to start")
         #     if self.process.poll() is None:
         #         time.sleep(1)
         #     else:

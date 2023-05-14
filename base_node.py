@@ -53,7 +53,7 @@ class GrpcBaseNode:
 
 class BaseNode(CommonExec):
     def __init__(self):
-        super().__init__("base_node")
+        super().__init__("Base_node")
         self.public_port = self.get_port("public_address")
         self.public_address = f"/ip4/127.0.0.1/tcp/{self.public_port}"
         self.grpc_port = self.get_port("GRPC")

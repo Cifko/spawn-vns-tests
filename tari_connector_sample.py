@@ -40,7 +40,7 @@ class TariConnectorSample(CommonExec):
             stdin=subprocess.PIPE,
             stdout=open(f"stdout/tari-connector_prepare.log", "a+"),
             stderr=subprocess.STDOUT,
-            cwd="./tari-connector_sample",
+            cwd="../tari-connector/examples/material-vite-ts",
         )
         # link tari-connector package
         self.process = subprocess.call(
@@ -48,9 +48,12 @@ class TariConnectorSample(CommonExec):
             stdin=subprocess.PIPE,
             stdout=open(f"stdout/tari-connector_prepare.log", "a+"),
             stderr=subprocess.STDOUT,
-            cwd="./tari-connector_sample",
+            cwd="../tari-connector/examples/material-vite-ts",
         )
         # run the project
         self.exec = " ".join([npm, "run", "dev", "--", "--port", str(self.http_port)])
         self.env["VITE_SIGNALING_SERVER_ADDRESS"] = signaling_server_address
-        self.run(REDIRECT_DAN_WALLET_WEBUI_STDOUT, "./tari-connector_sample")
+        self.run(
+            REDIRECT_DAN_WALLET_WEBUI_STDOUT,
+            "../tari-connector/examples/material-vite-ts",
+        )

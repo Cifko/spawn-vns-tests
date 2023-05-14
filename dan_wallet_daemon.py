@@ -23,15 +23,12 @@ class JrpcDanWalletDaemon:
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(self.url, json={"jsonrpc": "2.0", "method": method, "id": self.id, "params": params}, headers=headers)
-        print(response.json())
         return response.json()["result"]
 
     def auth(self):
         resp = self.call("auth.request", [["Admin"]])
-        print(resp)
         auth_token = resp["auth_token"]
         resp = self.call("auth.accept", [auth_token])
-        print(resp)
         self.token = resp["permissions_token"]
 
     def keys_list(self):
@@ -83,8 +80,7 @@ class JrpcDanWalletDaemon:
 
 class DanWalletDaemon(CommonExec):
     def __init__(self, dan_wallet_id: int, indexer_jrpc_port: int, signaling_server_port: int):
-        super().__init__("dan_wallet_daemon", dan_wallet_id)
-        print("here")
+        super().__init__("Dan_wallet_daemon", dan_wallet_id)
         self.json_rpc_port = super().get_port("JRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_dan_wallet_daemon"
@@ -111,16 +107,14 @@ class DanWalletDaemon(CommonExec):
         jrpc_address = f"http://127.0.0.1:{self.json_rpc_port}"
         self.jrpc_client = JrpcDanWalletDaemon(jrpc_address)
         self.http_client = DanWalletUI(self.id, jrpc_address)
+        print("Waiting for dan wallet to start", end="")
         while not os.path.exists(f"dan_wallet_daemon_{dan_wallet_id}/localnet/pid"):
-            print("waiting for dan wallet to start")
+            print(".", end="")
             if self.process.poll() is None:
                 time.sleep(1)
             else:
                 raise Exception(f"DAN wallet did not start successfully: Exit code:{self.process.poll()}")
-
-    def __del__(self):
-        del self.http_client
-        super().__del__()
+        print("done")
 
 
 class DanWalletUI(CommonExec):

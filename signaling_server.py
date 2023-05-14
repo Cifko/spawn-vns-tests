@@ -7,7 +7,7 @@ from common_exec import CommonExec
 
 class SignalingServer(CommonExec):
     def __init__(self):
-        super().__init__("signaling_server")
+        super().__init__("Signaling_server")
         self.json_rpc_port = self.get_port("JRPC")
         if USE_BINARY_EXECUTABLE:
             run = "tari_signaling_server"
@@ -23,6 +23,8 @@ class SignalingServer(CommonExec):
             ]
         )
         self.run(REDIRECT_SIGNALING_STDOUT)
+        print("Waiting for signaling server to start", end="")
         while not os.path.exists("signaling_server/pid"):
-            print("waiting for signaling server to start")
+            print(".", end="")
             time.sleep(1)
+        print("done")

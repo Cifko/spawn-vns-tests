@@ -3,6 +3,7 @@ import signal
 import subprocess
 from ports import ports
 from typing import Optional, Any
+from config import NAME_COLOR, COLOR_RESET, EXEC_COLOR
 
 
 class CommonExec:
@@ -21,7 +22,7 @@ class CommonExec:
 
     def run(self, redirect: bool | int, cwd: Optional[str] = None):
         env: dict[str, str] = os.environ.copy()
-        if (self.id and self.id >= redirect) or (not self.id and redirect):
+        if (self.id is not None and self.id >= redirect) or (not self.id and redirect):
             self.process = subprocess.Popen(
                 self.exec,
                 stdin=subprocess.PIPE,
@@ -34,14 +35,17 @@ class CommonExec:
             self.process = subprocess.Popen(self.exec, stdin=subprocess.PIPE, env={**env, **self.env}, cwd=cwd)
 
     def __del__(self):
-        print(f"kill {self.name}")
-        print(f"To run {self.exec}", end=" ")
+        print(f"kill {NAME_COLOR}{self.name}{COLOR_RESET}")
+        print(f"To run {EXEC_COLOR}{self.exec}{COLOR_RESET}", end=" ")
         if self.env:
-            print(f"With env {self.env}", end="")
+            print(f"With env {EXEC_COLOR}{self.env}{COLOR_RESET}", end="")
         print()
-        try:
-            if self.process:
+        if self.process:
+            try:
                 os.kill(self.process.pid, signal.CTRL_C_EVENT)
-        except:
-            pass
-        del self.process
+                print("killed")
+            except:
+                pass
+            if self.process:
+                self.process.kill()
+            del self.process

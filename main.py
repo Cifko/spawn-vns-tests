@@ -14,6 +14,9 @@ from config import (
     STEPS_CREATE_ACCOUNT,
     STEPS_CREATE_TEMPLATE,
     STEPS_RUN_TARI_CONNECTOR_TEST_SITE,
+    STEP_COLOR,
+    COLOR_RESET,
+    STEP_OUTER_COLOR,
 )
 from dan_wallet_daemon import DanWalletDaemon
 from indexer import Indexer
@@ -29,9 +32,13 @@ import json
 import os
 import re
 import shutil
-import sys
 import time
+import traceback
 import webbrowser
+
+
+def print_step(step_name: str):
+    print(f"{STEP_OUTER_COLOR}### {STEP_COLOR}{step_name} {STEP_OUTER_COLOR}###{COLOR_RESET}")
 
 
 def check_executable(file_name: str):
@@ -41,24 +48,26 @@ def check_executable(file_name: str):
 
 
 def wait_for_vns_to_sync():
-    print("Waiting for VNs to sync to", base_node.grpc_client.get_tip(), end=" ")
+    print("Waiting for VNs to sync to", base_node.grpc_client.get_tip(), end="")
     # We have to check if VNs are already running their jrpc server
     while True:
+        print(".", end="")
         try:
             all(
                 vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_client.get_tip() - 3
-                for vn in VNs.values()
+                for vn in validator_nodes.values()
             )
             break
         except:
-            print("VNs not ready")
             time.sleep(1)
+    print()
     while any(
-        vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_client.get_tip() - 3 for vn in VNs.values()
+        vn.jrpc_client.get_epoch_manager_stats()["current_block_height"] != base_node.grpc_client.get_tip() - 3
+        for vn in validator_nodes.values()
     ):
         print(".", end="")
         time.sleep(1)
-    print(" done")
+    print("done")
 
 
 try:
@@ -92,16 +101,16 @@ try:
         pass
 
     # Step 1, start the http server for serving wasm files.
-    print("### STARTING HTTP SERVER ###")
+    print_step("STARTING HTTP SERVER")
     server = Server()
     server.run()
-    print("### GENERATING TEMPLATE ###")
+    print_step("GENERATING TEMPLATE")
     # Generate template
     template = Template()
-    print("### STARTING BASE NODE ###")
+    print_step("STARTING BASE NODE")
     # Start base node
     base_node = BaseNode()
-    print("### STARTING WALLET ###")
+    print_step("STARTING WALLET")
     # Start wallet
     wallet = Wallet(base_node.get_address())
     # Set ports for miner
@@ -109,39 +118,42 @@ try:
     # Mine some blocks
     miner.mine(SPAWN_VNS + 13)  # Make sure we have enough funds
     # Start VNs
-    print("### CREATING VNS ###")
-    VNs: dict[int, ValidatorNode] = {}
+    print_step("CREATING VNS")
+    validator_nodes: dict[int, ValidatorNode] = {}
     for vn_id in range(SPAWN_VNS):
-        vn = ValidatorNode(base_node.grpc_port, wallet.grpc_port, vn_id, [VNs[vn_id].get_address() for vn_id in VNs])
-        VNs[vn_id] = vn
+        vn = ValidatorNode(
+            base_node.grpc_port, wallet.grpc_port, vn_id, [validator_nodes[vn_id].get_address() for vn_id in validator_nodes]
+        )
+        validator_nodes[vn_id] = vn
 
     wait_for_vns_to_sync()
 
-    print("### REGISTER THE VNS ###")
+    print_step("REGISTER THE VNS")
     # Register VNs
-    for vn_id in VNs:
-        VNs[vn_id].register()
+    for vn_id in validator_nodes:
+        validator_nodes[vn_id].register()
         # Uncomment next line if you want to have only one registeration per block
         # miner.mine(1)
 
         # Wait until they are all in the mempool
     i = 0
+    print("Waiting for X tx's in mempool", end="")
     while i < 10:
-        if base_node.grpc_client.get_mempool_size() < len(VNs) + 1:
-            print("Waiting for X tx's in mempool...")
+        if base_node.grpc_client.get_mempool_size() < len(validator_nodes) + 1:
+            print(".", end="")
             time.sleep(3)
         else:
             break
         i += 1
-
+    print("done")
     # Mining till the VNs are part of the committees
     miner.mine(20)  # Mine the register TXs
     time.sleep(1)
 
     indexer = None
     if SPAWN_INDEXER:
-        print("### STARTING INDEXER")
-        indexer = Indexer(base_node.grpc_port, [VNs[vn_id].get_address() for vn_id in VNs])
+        print_step("STARTING INDEXER")
+        indexer = Indexer(base_node.grpc_port, [validator_nodes[vn_id].get_address() for vn_id in validator_nodes])
         time.sleep(1)
         # force the indexer to connect to a VN. It will not find this substate, but it needs to contact the VN
         # to start comms
@@ -153,45 +165,47 @@ try:
         comms_stats = indexer.jrpc_client.get_comms_stats()
         print(connections)
         print(comms_stats)
-    print("### CREATING DAN WALLETS DAEMONS ###")
+    print_step("CREATING DAN WALLETS DAEMONS")
 
-    DanWallets: dict[int, DanWalletDaemon] = {}
+    dan_wallets: dict[int, DanWalletDaemon] = {}
 
     if not indexer and SPAWN_WALLETS > 0:
         raise Exception("Can't create a wallet when there is no indexer")
 
     signaling_server_jrpc_port = None
     if STEPS_RUN_SIGNALLING_SERVER:
-        print("### Starting signalling server")
+        print_step("Starting signalling server")
         signaling_server = SignalingServer()
         signaling_server_jrpc_port = signaling_server.json_rpc_port
 
     for dwallet_id in range(SPAWN_WALLETS):
         # vn_id = min(SPAWN_VNS - 1, dwallet_id)
         if indexer and signaling_server_jrpc_port:
-            DanWallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port, signaling_server_jrpc_port)
+            dan_wallets[dwallet_id] = DanWalletDaemon(dwallet_id, indexer.json_rpc_port, signaling_server_jrpc_port)
 
     wait_for_vns_to_sync()
 
     for d_id in range(SPAWN_WALLETS):
+        print(f"Waiting for Dan{d_id} JRPC", end="")
         while True:
             try:
-                DanWallets[d_id].jrpc_client.auth()
+                dan_wallets[d_id].jrpc_client.auth()
                 break
             except:
-                print(f"Waiting for Dan{d_id} JRPC")
+                print(".", end="")
+        print("done")
 
     # Publish template
-    print("### PUBLISHING TEMPLATE ###")
-    template.publish_template(next(iter(VNs.values())).json_rpc_port, server.port)
+    print_step("PUBLISHING TEMPLATE")
+    template.publish_template(next(iter(validator_nodes.values())).json_rpc_port, server.port)
 
     # Wait for the VNs to pickup the blocks from base layer
     # TODO wait for VN to download and activate the template
     wait_for_vns_to_sync()
 
     if STEPS_CREATE_ACCOUNT:
-        print("### CREATING ACCOUNT ###")
-        some_dan_wallet_jrpc = next(iter(DanWallets.values())).jrpc_client
+        print_step("CREATING ACCOUNT")
+        some_dan_wallet_jrpc = next(iter(dan_wallets.values())).jrpc_client
         some_dan_wallet_jrpc.accounts_create("TestAccount")
         account = some_dan_wallet_jrpc.accounts_list(0, 1)["accounts"][0]
         public_key = account["public_key"]
@@ -199,9 +213,7 @@ try:
         # needs conversion from string to bytes
         # public_key = bytes(int(public_key[i: i + 2], 16)
         #                    for i in range(0, len(public_key), 2))
-        print(f"### BURNING {BURN_AMOUNT} ###")
-        print("account", account)
-        print("public_key", type(public_key))
+        print_step(f"BURNING {BURN_AMOUNT}")
 
         burn = wallet.grpc_client.burn(BURN_AMOUNT, bytes.fromhex(public_key))
 
@@ -212,9 +224,9 @@ try:
         # Mine the burn
         wait_for_vns_to_sync()
 
-        print(f"### CLAIM BURN ###")
+        print_step("CLAIM BURN")
         some_dan_wallet_jrpc.claim_burn(burn, account)
-        print(f"### CHECKING THE BALANCE ###")
+        print_step("CHECKING THE BALANCE")
         # Claim the burn
         while (
             some_dan_wallet_jrpc.get_balances(account)["balances"][0]["balance"]
@@ -223,11 +235,11 @@ try:
         ):
             time.sleep(1)
 
-        print("### BURNED AND CLAIMED ###")
-        print("Balances:", list(DanWallets.values())[0].jrpc_client.get_balances(account))
+        print_step("BURNED AND CLAIMED")
+        print("Balances:", list(dan_wallets.values())[0].jrpc_client.get_balances(account))
 
     if STEPS_CREATE_TEMPLATE:
-        print("### Creating template")
+        print_step("Creating template")
 
         # Call the function
         TEMPLATE_FUNCTION = DEFAULT_TEMPLATE_FUNCTION.split("=")
@@ -235,17 +247,22 @@ try:
 
         print(TEMPLATE_FUNCTION)
         print(FUNCTION_ARGS)
-        template.call_function(TEMPLATE_FUNCTION[0], next(iter(DanWallets.values())).jrpc_client, FUNCTION_ARGS)
+        template.call_function(TEMPLATE_FUNCTION[0], next(iter(dan_wallets.values())).jrpc_client, FUNCTION_ARGS)
 
     if STEPS_RUN_TARI_CONNECTOR_TEST_SITE:
         if not STEPS_RUN_SIGNALLING_SERVER:
             print("Starting tari-connector test without signaling server is pointless!")
         else:
-            print("### Starting tari-connector test website")
-            tari_connector_sample = TariConnectorSample(signaling_server_address=f"127.0.0.1:{signaling_server.json_rpc_port}")
+            print_step("Starting tari-connector test website")
+            tari_connector_sample = TariConnectorSample(signaling_server_address=f"http://127.0.0.1:{signaling_server.json_rpc_port}")
     try:
         while True:
-            command = input("Command (press ctrl-c to exit or type 'help'): ")
+            try:
+                command = input("Command (press ctrl-c to exit or type 'help'): ")
+            except:
+                # this is for ctrl-c
+                print("ctrl-c exiting...")
+                break
             for_eval = command
             command.lower()
             try:
@@ -255,7 +272,9 @@ try:
                     print("mine <number of blocks> - to mine blocks")
                     print("grpc <node|wallet> - to get grpc port of node or wallet")
                     print("jrpc <vn <id>|dan <id>|indexer> - to get jrpc port of vn with id <id>, dan wallet with id <id> or indexer")
-                    print("http <vn <id>|dan <id>|indexer> - to get http address of vn with id <id>, dan with id <id> or indexer")
+                    print(
+                        "http <vn <id>|dan <id>|indexer|connector> - to get http address of vn with id <id>, dan with id <id>, indexer or connector (connector sample page)"
+                    )
                     print(
                         "kill <node|wallet|indexer|vn <id>|dan <id>> - to kill node, wallet, indexer, vn with id or dan wallet with id, the command how to run it locally will be printed without the `-n` (non-interactive switch)"
                     )
@@ -265,7 +284,7 @@ try:
                 elif command.startswith("burn"):
                     public_key = command.split()[1]
                     public_key = bytes(int(public_key[i : i + 2], 16) for i in range(0, len(public_key), 2))
-                    print(f"### BURNING {BURN_AMOUNT} ###")
+                    print_step(f"BURNING {BURN_AMOUNT}")
                     burn = wallet.grpc_client.burn(BURN_AMOUNT, public_key)
                     os.mkdir("output")
                     outfile = "burn.json"
@@ -302,15 +321,15 @@ try:
                 elif command.startswith("jrpc vn"):
                     if r := re.match(r"jrpc vn (\d+)", command):
                         vn_id = int(r.group(1))
-                        if vn_id in VNs:
-                            print(VNs[vn_id].json_rpc_port)
+                        if vn_id in validator_nodes:
+                            print(validator_nodes[vn_id].json_rpc_port)
                         else:
                             print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
                 elif command.startswith("jrpc dan"):
                     if r := re.match(r"jrpc dan (\d+)", command):
                         vn_id = int(r.group(1))
-                        if vn_id in VNs:
-                            print(DanWallets[vn_id].json_rpc_port)
+                        if vn_id in validator_nodes:
+                            print(dan_wallets[vn_id].json_rpc_port)
                         else:
                             print(f"dan id ({vn_id}) is invalid, either it never existed or you already killed it")
                 elif command.startswith("jrpc indexer"):
@@ -320,8 +339,8 @@ try:
                     if command.startswith("http vn"):
                         if r := re.match(r"http vn (\d+)", command):
                             vn_id = int(r.group(1))
-                            if vn_id in VNs:
-                                url = f"http://{VNs[vn_id].http_ui_address}"
+                            if vn_id in validator_nodes:
+                                url = f"http://{validator_nodes[vn_id].http_ui_address}"
                                 print(url)
                                 webbrowser.open(url)
                             else:
@@ -329,8 +348,8 @@ try:
                     elif command.startswith("http dan"):
                         if r := re.match("http dan (\d+)", command):
                             dan_id = int(r.group(1))
-                            if dan_id in DanWallets:
-                                url = f"http://localhost:{DanWallets[dan_id].http_client.http_port}"
+                            if dan_id in dan_wallets:
+                                url = f"http://localhost:{dan_wallets[dan_id].http_client.http_port}"
                                 print(url)
                                 webbrowser.open(url)
                             else:
@@ -368,17 +387,17 @@ try:
                             # This should be 'VN <id>'
                             if r := re.match(r"vn (\d+)", what):
                                 vn_id = int(r.group(1))
-                                if vn_id in VNs:
-                                    print(f"To run the vn : {VNs[vn_id].exec}")
-                                    print(f"Command that was used to register the VN : {VNs[vn_id].exec_cli}")
-                                    del VNs[vn_id]
+                                if vn_id in validator_nodes:
+                                    print(f"To run the vn : {validator_nodes[vn_id].exec}")
+                                    print(f"Command that was used to register the VN : {validator_nodes[vn_id].exec_cli}")
+                                    del validator_nodes[vn_id]
                                 else:
                                     print(f"VN id ({vn_id}) is invalid, either it never existed or you already killed it")
                             elif r := re.match("dan (\d+)", what):
                                 dan_id = int(r.group(1))
-                                if dan_id in DanWallets:
-                                    print(f"To run the vn : {DanWallets[dan_id].exec}")
-                                    del DanWallets[dan_id]
+                                if dan_id in dan_wallets:
+                                    print(f"To run the vn : {dan_wallets[dan_id].exec}")
+                                    del dan_wallets[dan_id]
                                 else:
                                     print(f"DanWallet id ({dan_id}) is invalid, either it never existed or you already killed it")
                             else:
@@ -391,46 +410,41 @@ try:
                         print("Wallet is running")
                     if "indexer" in locals():
                         print("Indexer is running")
-                    for vn_id in VNs:
+                    for vn_id in validator_nodes:
                         print(f"VN<{vn_id}> is running")
-                    for daemon_id in DanWallets:
+                    for daemon_id in dan_wallets:
                         print(f"DanWallet<{daemon_id}> is running")
                 elif command == "tx":
-                    template.call_function(TEMPLATE_FUNCTION[0], next(iter(DanWallets.values())).jrpc_client, FUNCTION_ARGS)
+                    template.call_function(TEMPLATE_FUNCTION[0], next(iter(dan_wallets.values())).jrpc_client, FUNCTION_ARGS)
                     pass
                 elif command.startswith("eval"):
                     # In case you need for whatever reason access to the running python script
                     eval(for_eval[len("eval ") :])
                 else:
                     print("Wrong command")
-            except Exception as e:
-                print("Command errored", e)
-    except:
-        print("failed in CLI loop")
+            except Exception as ex:
+                print("Command errored:", ex)
+                traceback.print_exc()
+    except Exception as ex:
+        print("Failed in CLI loop:", ex)
+        traceback.print_exc()
 except Exception as ex:
-    print("failed setup:", ex)
-    exc_type, exc_obj, exc_tb = sys.exc_info()
-    if exc_tb:
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
+    print("Failed setup:", ex)
+    traceback.print_exc()
 
-print("The commands to run : ")
-if "base_node" in locals():
-    print("Base Node : ")
-    print(base_node.exec.replace("-n ", ""))
+if "tari_connector_sample" in locals():
+    del tari_connector_sample
+if "signaling_server" in locals():
+    del signaling_server
+if "DanWallets" in locals():
+    del dan_wallets
+if "indexer" in locals():
+    del indexer
+if "VNs" in locals():
+    del validator_nodes
 if "wallet" in locals():
-    print("Wallet : ")
-    print(wallet.exec.replace("-n ", ""))
-if "indexer" in locals() and indexer != {}:
-    if indexer:
-        print("Indexer : ")
-        print(indexer.exec.replace("-n ", ""))
-print("Miner : ")
-print(miner.exec)
-server.stop()
-if VNs:
-    for vn_id in VNs:
-        print(VNs[vn_id].exec)
-        # print(VNs[vn_id].exec_cli)
-# for dan_id in DanWallets:
-del DanWallets
+    del wallet
+if "base_node" in locals():
+    del base_node
+if "server" in locals():
+    del server
